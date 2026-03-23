@@ -114,13 +114,47 @@ class CoinoneExchange(ExchangeBase):
     
     def get_candles(self, symbol: str, interval: str = "1d", limit: int = 100) -> List[dict]:
         """
-        캔들 데이터 조회
-        Note: 코인원 Public API에서 캔들 데이터는 제한적입니다.
+        캔들 데이터 조회 (v2 API)
+        interval: 1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 6h, 1d, 1w
         """
         try:
-            # 코인원은 candle API가 제한적이므로 업비트 데이터 활용 권장
-            logger.warning(f"[coinone] 캔들 조회는 지원하지 않습니다. 업비트 데이터를 사용하세요.")
-            return []
+            # interval 매핑 (표준 → 코인원)
+            interval_map = {
+                "1m": "1m", "3m": "3m", "5m": "5m", "15m": "15m", "30m": "30m",
+                "1h": "1h", "2h": "2h", "4h": "4h", "6h": "6h",
+                "1d": "1d", "1w": "1w",
+                # 별칭
+                "day": "1d", "week": "1w", "hour": "1h", "minute": "1m",
+            }
+            
+            coinone_interval = interval_map.get(interval, "1d")
+            
+            # v2 API: /public/v2/chart/KRW/{SYMBOL}
+            data = self._get(f"/public/v2/chart/KRW/{symbol.upper()}", params={
+                "interval": coinone_interval,
+                "limit": limit,
+            })
+            
+            if data.get("result") != "success":
+                logger.warning(f"[coinone] 캔들 API 오류: {data.get('error_code')}")
+                return []
+            
+            candles = []
+            for item in data.get("chart", []):
+                candles.append({
+                    "timestamp": item.get("timestamp"),
+                    "open": float(item.get("open", 0)),
+                    "high": float(item.get("high", 0)),
+                    "low": float(item.get("low", 0)),
+                    "close": float(item.get("close", 0)),
+                    "volume": float(item.get("target_volume", 0)),
+                })
+            
+            # 시간순 정렬 (오래된 것 → 최신)
+            candles.sort(key=lambda x: x["timestamp"])
+            
+            return candles
+            
         except Exception as e:
             logger.error(f"[coinone] 캔들 조회 실패 ({symbol}): {e}")
             return []
