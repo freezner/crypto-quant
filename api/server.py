@@ -63,7 +63,8 @@ async def start_exchange_websockets():
     """거래소 WebSocket 연결 시작"""
     print("[Server] 거래소 WebSocket 연결 시작...")
     
-    for exchange_name in ["upbit", "bithumb"]:
+    # 지원하는 모든 거래소 연결
+    for exchange_name in WEBSOCKETS.keys():
         try:
             ws = get_websocket(exchange_name)
             ws.start(SUPPORTED_COINS)
