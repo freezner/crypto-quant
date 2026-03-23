@@ -79,6 +79,7 @@ def main():
             step=1000000,
             format="%d",
         )
+        st.caption(f"₩{initial_balance:,.0f}")
         
         st.divider()
         
@@ -564,6 +565,18 @@ def show_analysis_results(current_settings: dict = None):
     if positions:
         st.subheader("현재 보유 포지션")
         pos_df = pd.DataFrame(positions)
+        # 컬럼명 한글화 및 포맷팅
+        pos_df = pos_df.rename(columns={
+            "symbol": "코인",
+            "quantity": "수량",
+            "avg_price": "평균가",
+            "current_price": "현재가",
+            "value": "평가금액",
+        })
+        pos_df["평균가"] = pos_df["평균가"].apply(lambda x: f"₩{x:,.0f}")
+        pos_df["현재가"] = pos_df["현재가"].apply(lambda x: f"₩{x:,.0f}")
+        pos_df["평가금액"] = pos_df["평가금액"].apply(lambda x: f"₩{x:,.0f}")
+        pos_df["수량"] = pos_df["수량"].apply(lambda x: f"{x:,.4f}")
         st.dataframe(pos_df, use_container_width=True, hide_index=True)
 
 
