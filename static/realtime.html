@@ -79,86 +79,112 @@
             color: rgba(255,255,255,0.5);
         }
         
-        /* 테이블 컨테이너 */
-        .table-container {
+        /* 메인 컨테이너 */
+        .container {
             max-width: 1200px;
             margin: 0 auto;
+        }
+        
+        /* 코인 카드 */
+        .coin-card {
             background: rgba(255,255,255,0.03);
-            border-radius: 16px;
-            overflow: hidden;
             border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            margin-bottom: 16px;
+            overflow: hidden;
         }
         
-        /* 테이블 스타일 */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        
-        thead {
-            background: rgba(255,255,255,0.05);
-        }
-        
-        th {
-            padding: 16px 20px;
-            text-align: left;
-            font-weight: 600;
-            font-size: 0.85rem;
-            color: rgba(255,255,255,0.7);
+        /* 코인 헤더 */
+        .coin-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 20px 24px;
+            background: rgba(255,255,255,0.03);
             border-bottom: 1px solid rgba(255,255,255,0.1);
         }
         
-        th.center { text-align: center; }
-        th.right { text-align: right; }
-        
-        tbody tr {
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-            transition: background 0.2s;
-        }
-        
-        tbody tr:hover {
-            background: rgba(255,255,255,0.05);
-        }
-        
-        td {
-            padding: 16px 20px;
-            font-size: 0.95rem;
-        }
-        
-        td.center { text-align: center; }
-        td.right { text-align: right; }
-        
-        /* 코인 심볼 */
-        .coin-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
         .coin-icon {
-            width: 36px;
-            height: 36px;
+            width: 48px;
+            height: 48px;
             background: rgba(255,255,255,0.1);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 700;
-            font-size: 0.8rem;
+            font-size: 1.2rem;
+        }
+        
+        .coin-icon.btc { background: linear-gradient(135deg, #f7931a, #ffab40); }
+        .coin-icon.eth { background: linear-gradient(135deg, #627eea, #8c9eff); }
+        .coin-icon.xrp { background: linear-gradient(135deg, #00aae4, #00e5ff); }
+        .coin-icon.sol { background: linear-gradient(135deg, #9945ff, #14f195); }
+        .coin-icon.doge { background: linear-gradient(135deg, #c3a634, #ffd54f); }
+        
+        .coin-title {
+            flex: 1;
         }
         
         .coin-name {
+            font-size: 1.4rem;
             font-weight: 700;
-            font-size: 1rem;
         }
         
-        /* 거래소 뱃지 */
+        .coin-fullname {
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.5);
+        }
+        
+        .coin-best {
+            text-align: right;
+        }
+        
+        .coin-best-price {
+            font-size: 1.5rem;
+            font-weight: 700;
+            font-family: 'SF Mono', Monaco, monospace;
+        }
+        
+        .coin-best-change {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        
+        .coin-best-change.positive { color: #00c853; }
+        .coin-best-change.negative { color: #ff4444; }
+        
+        /* 거래소 그리드 */
+        .exchange-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1px;
+            background: rgba(255,255,255,0.05);
+        }
+        
+        .exchange-cell {
+            background: rgba(22, 33, 62, 0.8);
+            padding: 16px 20px;
+            transition: background 0.2s;
+        }
+        
+        .exchange-cell:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        
+        .exchange-name {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        
         .exchange-badge {
             display: inline-block;
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 700;
             text-transform: uppercase;
         }
         
@@ -166,18 +192,23 @@
         .exchange-badge.bithumb { background: #f37321; }
         .exchange-badge.coinone { background: #0066ff; }
         
-        /* 가격 */
-        .price {
-            font-weight: 700;
-            font-family: 'SF Mono', Monaco, monospace;
-            font-size: 1rem;
+        .exchange-updated {
+            font-size: 0.7rem;
+            color: rgba(255,255,255,0.4);
         }
         
-        .price.flash-up {
+        .exchange-price {
+            font-size: 1.15rem;
+            font-weight: 700;
+            font-family: 'SF Mono', Monaco, monospace;
+            margin-bottom: 4px;
+        }
+        
+        .exchange-price.flash-up {
             animation: flashUp 0.3s ease;
         }
         
-        .price.flash-down {
+        .exchange-price.flash-down {
             animation: flashDown 0.3s ease;
         }
         
@@ -193,20 +224,32 @@
             100% { color: #fff; }
         }
         
-        /* 변동률 */
-        .change {
+        .exchange-change {
+            font-size: 0.9rem;
             font-weight: 600;
-            font-size: 0.95rem;
         }
         
-        .change.positive { color: #00c853; }
-        .change.negative { color: #ff4444; }
+        .exchange-change.positive { color: #00c853; }
+        .exchange-change.negative { color: #ff4444; }
         
-        /* 업데이트 시간 */
-        .updated {
-            color: rgba(255,255,255,0.5);
-            font-size: 0.8rem;
+        .exchange-cell.no-data {
+            opacity: 0.3;
         }
+        
+        .exchange-cell.no-data .exchange-price {
+            color: rgba(255,255,255,0.3);
+        }
+        
+        /* 프리미엄 표시 */
+        .premium-tag {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+        }
+        
+        .premium-tag.high { background: rgba(255,68,68,0.3); color: #ff6b6b; }
+        .premium-tag.low { background: rgba(0,200,83,0.3); color: #69f0ae; }
         
         .footer {
             text-align: center;
@@ -218,21 +261,26 @@
         
         /* 반응형 */
         @media (max-width: 768px) {
-            .table-container {
-                border-radius: 0;
-                margin: 0 -20px;
+            .exchange-grid {
+                grid-template-columns: 1fr;
             }
             
-            th, td {
-                padding: 12px 10px;
+            .coin-header {
+                padding: 16px;
             }
             
             .coin-icon {
-                display: none;
+                width: 40px;
+                height: 40px;
+                font-size: 1rem;
             }
             
-            .price {
-                font-size: 0.9rem;
+            .coin-name {
+                font-size: 1.2rem;
+            }
+            
+            .coin-best-price {
+                font-size: 1.2rem;
             }
         }
     </style>
@@ -251,8 +299,8 @@
                 <div class="stat-label">업데이트</div>
             </div>
             <div class="stat">
-                <div class="stat-value" id="priceCount">0</div>
-                <div class="stat-label">시세</div>
+                <div class="stat-value" id="coinCount">0</div>
+                <div class="stat-label">코인</div>
             </div>
             <div class="stat">
                 <div class="stat-value" id="latency">-</div>
@@ -261,21 +309,8 @@
         </div>
     </div>
     
-    <div class="table-container">
-        <table>
-            <thead>
-                <tr>
-                    <th>코인</th>
-                    <th class="center">거래소</th>
-                    <th class="right">현재가</th>
-                    <th class="right">변동률</th>
-                    <th class="center">업데이트</th>
-                </tr>
-            </thead>
-            <tbody id="priceTable">
-                <!-- 가격 행이 여기에 동적으로 추가됨 -->
-            </tbody>
-        </table>
+    <div class="container" id="priceContainer">
+        <!-- 코인 카드가 여기에 동적으로 추가됨 -->
     </div>
     
     <div class="footer">
@@ -284,9 +319,20 @@
     </div>
 
     <script>
+        // 코인 정보
+        const COINS = {
+            'BTC': { name: '비트코인', icon: '₿' },
+            'ETH': { name: '이더리움', icon: 'Ξ' },
+            'XRP': { name: '리플', icon: '✕' },
+            'SOL': { name: '솔라나', icon: '◎' },
+            'DOGE': { name: '도지코인', icon: 'Ð' },
+        };
+        
+        const EXCHANGES = ['upbit', 'bithumb', 'coinone'];
+        
         // 상태 관리
         const state = {
-            prices: {},          // key: symbol-exchange
+            prices: {},          // symbol -> { exchange -> priceData }
             updateCount: 0,
             ws: null,
             reconnectAttempts: 0,
@@ -297,20 +343,11 @@
         const elements = {
             statusDot: document.getElementById('statusDot'),
             statusText: document.getElementById('statusText'),
-            priceTable: document.getElementById('priceTable'),
+            priceContainer: document.getElementById('priceContainer'),
             updateCount: document.getElementById('updateCount'),
-            priceCount: document.getElementById('priceCount'),
+            coinCount: document.getElementById('coinCount'),
             latency: document.getElementById('latency'),
             lastUpdate: document.getElementById('lastUpdate'),
-        };
-        
-        // 코인 아이콘 (첫 글자)
-        const coinIcons = {
-            'BTC': '₿',
-            'ETH': 'Ξ',
-            'XRP': '✕',
-            'SOL': '◎',
-            'DOGE': 'Ð',
         };
         
         // 가격 포맷
@@ -321,94 +358,119 @@
             return '₩' + price.toLocaleString('ko-KR', { maximumFractionDigits: 0 });
         }
         
-        // 행 생성/업데이트
-        function updatePriceRow(symbol, exchange, priceData) {
-            const rowId = `row-${symbol}-${exchange}`;
-            let row = document.getElementById(rowId);
+        // 코인 카드 생성
+        function createCoinCard(symbol) {
+            const coinInfo = COINS[symbol] || { name: symbol, icon: symbol.charAt(0) };
             
-            const price = priceData.price;
-            const changePct = priceData.change_pct;
-            const changeClass = changePct >= 0 ? 'positive' : 'negative';
-            const changeStr = (changePct >= 0 ? '+' : '') + changePct.toFixed(2) + '%';
-            const icon = coinIcons[symbol] || symbol.charAt(0);
-            const now = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const card = document.createElement('div');
+            card.id = `coin-${symbol}`;
+            card.className = 'coin-card';
             
-            if (!row) {
-                // 새 행 생성
-                row = document.createElement('tr');
-                row.id = rowId;
-                row.dataset.symbol = symbol;
-                row.dataset.exchange = exchange;
-                row.innerHTML = `
-                    <td>
-                        <div class="coin-info">
-                            <div class="coin-icon">${icon}</div>
-                            <span class="coin-name">${symbol}</span>
+            card.innerHTML = `
+                <div class="coin-header">
+                    <div class="coin-icon ${symbol.toLowerCase()}">${coinInfo.icon}</div>
+                    <div class="coin-title">
+                        <div class="coin-name">${symbol}</div>
+                        <div class="coin-fullname">${coinInfo.name}</div>
+                    </div>
+                    <div class="coin-best">
+                        <div class="coin-best-price" id="best-price-${symbol}">-</div>
+                        <div class="coin-best-change" id="best-change-${symbol}">-</div>
+                    </div>
+                </div>
+                <div class="exchange-grid">
+                    ${EXCHANGES.map(ex => `
+                        <div class="exchange-cell no-data" id="cell-${symbol}-${ex}">
+                            <div class="exchange-name">
+                                <span class="exchange-badge ${ex}">${ex.toUpperCase()}</span>
+                                <span class="exchange-updated" id="updated-${symbol}-${ex}">-</span>
+                            </div>
+                            <div class="exchange-price" id="price-${symbol}-${ex}">-</div>
+                            <div class="exchange-change" id="change-${symbol}-${ex}">-</div>
                         </div>
-                    </td>
-                    <td class="center">
-                        <span class="exchange-badge ${exchange}">${exchange.toUpperCase()}</span>
-                    </td>
-                    <td class="right">
-                        <span class="price" id="price-${rowId}">${formatPrice(price)}</span>
-                    </td>
-                    <td class="right">
-                        <span class="change ${changeClass}" id="change-${rowId}">${changeStr}</span>
-                    </td>
-                    <td class="center">
-                        <span class="updated" id="updated-${rowId}">${now}</span>
-                    </td>
-                `;
-                
-                // 정렬: 심볼 → 거래소 순
-                insertRowSorted(row);
-            } else {
-                // 기존 행 업데이트
-                const priceEl = document.getElementById(`price-${rowId}`);
-                const changeEl = document.getElementById(`change-${rowId}`);
-                const updatedEl = document.getElementById(`updated-${rowId}`);
-                
-                const oldPrice = parseFloat(priceEl.dataset.price) || 0;
-                
-                // 플래시 효과
-                if (oldPrice > 0 && price !== oldPrice) {
-                    priceEl.classList.remove('flash-up', 'flash-down');
-                    void priceEl.offsetWidth; // reflow
-                    priceEl.classList.add(price > oldPrice ? 'flash-up' : 'flash-down');
-                }
-                
-                priceEl.textContent = formatPrice(price);
-                priceEl.dataset.price = price;
-                
-                changeEl.textContent = changeStr;
-                changeEl.className = `change ${changeClass}`;
-                
-                updatedEl.textContent = now;
+                    `).join('')}
+                </div>
+            `;
+            
+            elements.priceContainer.appendChild(card);
+            return card;
+        }
+        
+        // 가격 업데이트
+        function updatePrice(symbol, exchange, priceData) {
+            // 코인 카드 없으면 생성
+            if (!document.getElementById(`coin-${symbol}`)) {
+                createCoinCard(symbol);
             }
             
             // 상태 저장
-            const key = `${symbol}-${exchange}`;
-            state.prices[key] = priceData;
+            if (!state.prices[symbol]) {
+                state.prices[symbol] = {};
+            }
+            state.prices[symbol][exchange] = priceData;
+            
+            // 셀 업데이트
+            const cell = document.getElementById(`cell-${symbol}-${exchange}`);
+            const priceEl = document.getElementById(`price-${symbol}-${exchange}`);
+            const changeEl = document.getElementById(`change-${symbol}-${exchange}`);
+            const updatedEl = document.getElementById(`updated-${symbol}-${exchange}`);
+            
+            if (!cell) return;
+            
+            cell.classList.remove('no-data');
+            
+            const oldPrice = parseFloat(priceEl.dataset.price) || 0;
+            const newPrice = priceData.price;
+            
+            // 플래시 효과
+            if (oldPrice > 0 && newPrice !== oldPrice) {
+                priceEl.classList.remove('flash-up', 'flash-down');
+                void priceEl.offsetWidth;
+                priceEl.classList.add(newPrice > oldPrice ? 'flash-up' : 'flash-down');
+            }
+            
+            priceEl.textContent = formatPrice(newPrice);
+            priceEl.dataset.price = newPrice;
+            
+            const changePct = priceData.change_pct;
+            const changeStr = (changePct >= 0 ? '+' : '') + changePct.toFixed(2) + '%';
+            changeEl.textContent = changeStr;
+            changeEl.className = `exchange-change ${changePct >= 0 ? 'positive' : 'negative'}`;
+            
+            const now = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            updatedEl.textContent = now;
+            
+            // 최고가 업데이트
+            updateBestPrice(symbol);
         }
         
-        // 정렬된 위치에 행 삽입
-        function insertRowSorted(newRow) {
-            const rows = elements.priceTable.querySelectorAll('tr');
-            const newSymbol = newRow.dataset.symbol;
-            const newExchange = newRow.dataset.exchange;
+        // 최고가 업데이트
+        function updateBestPrice(symbol) {
+            const prices = state.prices[symbol];
+            if (!prices) return;
             
-            for (const row of rows) {
-                const symbol = row.dataset.symbol;
-                const exchange = row.dataset.exchange;
-                
-                // 심볼 순 → 거래소 순
-                if (newSymbol < symbol || (newSymbol === symbol && newExchange < exchange)) {
-                    elements.priceTable.insertBefore(newRow, row);
-                    return;
+            let bestPrice = 0;
+            let bestChange = 0;
+            
+            for (const [ex, data] of Object.entries(prices)) {
+                if (data.price > bestPrice) {
+                    bestPrice = data.price;
+                    bestChange = data.change_pct;
                 }
             }
             
-            elements.priceTable.appendChild(newRow);
+            const bestPriceEl = document.getElementById(`best-price-${symbol}`);
+            const bestChangeEl = document.getElementById(`best-change-${symbol}`);
+            
+            if (bestPriceEl) {
+                bestPriceEl.textContent = formatPrice(bestPrice);
+            }
+            
+            if (bestChangeEl) {
+                const changeStr = (bestChange >= 0 ? '+' : '') + bestChange.toFixed(2) + '%';
+                bestChangeEl.textContent = changeStr;
+                bestChangeEl.className = `coin-best-change ${bestChange >= 0 ? 'positive' : 'negative'}`;
+            }
         }
         
         // WebSocket 연결
@@ -432,7 +494,6 @@
                 elements.statusDot.classList.remove('connected');
                 elements.statusText.textContent = '연결 끊김';
                 
-                // 재연결
                 if (state.reconnectAttempts < state.maxReconnectAttempts) {
                     state.reconnectAttempts++;
                     const delay = Math.min(1000 * state.reconnectAttempts, 10000);
@@ -456,19 +517,16 @@
                         
                         prices.forEach(item => {
                             const { symbol, exchange, price, change_pct, timestamp } = item;
-                            updatePriceRow(symbol, exchange, { price, change_pct, timestamp });
+                            updatePrice(symbol, exchange, { price, change_pct, timestamp });
                         });
                         
                         state.updateCount++;
                         elements.updateCount.textContent = state.updateCount.toLocaleString();
-                        elements.priceCount.textContent = Object.keys(state.prices).length;
+                        elements.coinCount.textContent = Object.keys(state.prices).length;
                     }
                     
-                    // 지연 시간 계산
                     const latency = Math.round(performance.now() - startTime);
                     elements.latency.textContent = latency;
-                    
-                    // 마지막 업데이트 시간
                     elements.lastUpdate.textContent = '마지막 업데이트: ' + new Date().toLocaleTimeString('ko-KR');
                     
                 } catch (e) {
