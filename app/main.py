@@ -1,12 +1,15 @@
 """
 크립토 퀀트 시뮬레이터 - Streamlit 대시보드
+- 시세 조회: 일일 종가 (전일 오후 9시 기점)
+- 분석 결과: 전일 종가 기준 분석
+- 전략 비교: 일/주/월 수익률 비교
 """
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
-from datetime import datetime
-import time
+from datetime import datetime, timedelta
+from typing import List, Dict
 
 # 프로젝트 모듈 임포트
 import sys
@@ -14,9 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.config import SUPPORTED_COINS, INITIAL_BALANCE
-from app.realtime import realtime_manager, format_price_for_display
 from exchanges import get_exchange, EXCHANGES
-from exchanges.websocket import WEBSOCKETS
 from strategies import get_strategy, STRATEGIES
 from simulator import SimulationEngine
 
@@ -28,39 +29,22 @@ st.set_page_config(
 )
 
 # 세션 상태 초기화
-if "ws_started" not in st.session_state:
-    st.session_state.ws_started = False
-if "portfolios" not in st.session_state:
-    st.session_state.portfolios = {}
-if "simulation_results" not in st.session_state:
-    st.session_state.simulation_results = {}
-
-
-def start_websocket():
-    """웹소켓 시작"""
-    if not st.session_state.ws_started:
-        realtime_manager.start(
-            exchanges=["upbit", "bithumb"],
-            symbols=SUPPORTED_COINS,
-        )
-        st.session_state.ws_started = True
+if "analysis_results" not in st.session_state:
+    st.session_state.analysis_results = {}
+if "comparison_results" not in st.session_state:
+    st.session_state.comparison_results = {}
 
 
 def main():
     st.title("🪙 크립토 퀀트 시뮬레이터")
-    st.markdown("*가상 투자 시뮬레이션으로 퀀트 전략 비교*")
+    st.markdown("*퀀트 전략 백테스팅 및 수익률 비교*")
+    
+    # 실시간 시세 링크
+    st.info("📡 **실시간 시세**는 [여기서 확인](http://localhost:8000) (FastAPI 서버)")
     
     # 사이드바
     with st.sidebar:
         st.header("⚙️ 설정")
-        
-        # 실시간 연결 상태
-        ws_status = realtime_manager.get_status()
-        if ws_status["is_running"]:
-            connected = sum(1 for e in ws_status["exchanges"].values() if e["connected"])
-            st.success(f"🟢 실시간 연결 ({connected}개 거래소)")
-        else:
-            st.warning("🔴 실시간 연결 안됨")
         
         # 거래소 선택
         exchange_name = st.selectbox(
@@ -76,13 +60,6 @@ def main():
             index=0,
         )
         
-        # 전략 선택
-        strategy_name = st.selectbox(
-            "전략",
-            options=list(STRATEGIES.keys()),
-            format_func=lambda x: STRATEGIES[x].display_name,
-        )
-        
         # 초기 자금
         initial_balance = st.number_input(
             "초기 자금 (KRW)",
@@ -90,214 +67,179 @@ def main():
             max_value=1000000000,
             value=INITIAL_BALANCE,
             step=1000000,
+            format="%d",
         )
         
         st.divider()
         
-        # 실시간 연결 버튼
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🔌 실시간 연결", use_container_width=True):
-                start_websocket()
-                st.rerun()
-        
-        with col2:
-            if st.button("⏹️ 연결 해제", use_container_width=True):
-                realtime_manager.stop()
-                st.session_state.ws_started = False
-                st.rerun()
+        # 분석 기간
+        st.subheader("📅 분석 기간")
+        period_days = st.select_slider(
+            "데이터 기간",
+            options=[30, 60, 90, 180, 365],
+            value=90,
+            format_func=lambda x: f"{x}일",
+        )
         
         st.divider()
         
-        # 분석 버튼
-        if st.button("📊 백테스트 실행", type="primary", use_container_width=True):
-            run_analysis(exchange_name, symbol, strategy_name, initial_balance)
-        
-        if st.button("🔄 전체 전략 비교", use_container_width=True):
-            compare_all_strategies(exchange_name, symbol, initial_balance)
+        # 분석 실행 버튼
+        if st.button("🔍 전체 분석 실행", type="primary", use_container_width=True):
+            run_full_analysis(exchange_name, symbol, initial_balance, period_days)
     
     # 메인 컨텐츠
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "📡 실시간 시세", 
+    tab1, tab2, tab3 = st.tabs([
         "📈 시세 조회",
         "🎯 분석 결과", 
         "📊 전략 비교"
     ])
     
     with tab1:
-        show_realtime_prices()
+        show_daily_prices(exchange_name, symbol, period_days)
     
     with tab2:
-        show_static_prices(exchange_name)
-    
-    with tab3:
         show_analysis_results()
     
-    with tab4:
+    with tab3:
         show_strategy_comparison()
 
 
-def show_realtime_prices():
-    """실시간 시세 표시 (WebSocket)"""
-    st.subheader("📡 실시간 시세")
+def show_daily_prices(exchange_name: str, symbol: str, period_days: int):
+    """일일 종가 시세 표시 (전일 오후 9시 기점)"""
+    st.subheader("📈 일일 종가 시세")
+    st.caption("기준: 전일 오후 9시 (21:00 KST)")
     
-    # 자동 새로고침 설정
-    auto_refresh = st.checkbox("🔄 자동 새로고침 (2초)", value=True)
+    col1, col2 = st.columns([3, 1])
     
-    # 연결 시작
-    if not st.session_state.ws_started:
-        st.info("👆 사이드바에서 '실시간 연결' 버튼을 클릭하세요")
-        start_websocket()
-        time.sleep(1)  # 연결 대기
-    
-    # 가격 표시 영역
-    price_container = st.empty()
-    chart_container = st.empty()
-    
-    # 가격 조회
-    all_prices = realtime_manager.get_all_prices()
-    
-    if not all_prices:
-        price_container.warning("시세 데이터 수신 대기 중... (몇 초 소요)")
-        if auto_refresh:
-            time.sleep(2)
+    with col2:
+        if st.button("🔄 새로고침", use_container_width=True):
             st.rerun()
-        return
-    
-    # 심볼별로 그룹화 (최신 가격만)
-    latest_prices = {}
-    for ticker in all_prices:
-        key = ticker.symbol
-        if key not in latest_prices or ticker.timestamp > latest_prices[key].timestamp:
-            latest_prices[key] = ticker
-    
-    # 테이블 데이터 생성
-    data = []
-    for symbol in SUPPORTED_COINS:
-        if symbol in latest_prices:
-            formatted = format_price_for_display(latest_prices[symbol])
-            data.append(formatted)
-    
-    if data:
-        with price_container.container():
-            # 메트릭 카드
-            cols = st.columns(min(5, len(data)))
-            for i, item in enumerate(data[:5]):
-                with cols[i]:
-                    delta_color = "normal" if item["change_raw"] >= 0 else "inverse"
-                    st.metric(
-                        label=f"{item['symbol']} ({item['exchange']})",
-                        value=f"₩{item['price']}",
-                        delta=f"{item['change_raw']:+.2f}%",
-                        delta_color=delta_color,
-                    )
-            
-            st.caption(f"마지막 업데이트: {datetime.now().strftime('%H:%M:%S')}")
-        
-        # 가격 비교 차트
-        with chart_container.container():
-            # 거래소별 가격 비교
-            exchange_prices = {}
-            for ticker in all_prices:
-                key = (ticker.symbol, ticker.exchange)
-                if key not in exchange_prices:
-                    exchange_prices[key] = ticker
-            
-            chart_data = []
-            for (symbol, exchange), ticker in exchange_prices.items():
-                chart_data.append({
-                    "코인": symbol,
-                    "거래소": exchange.upper(),
-                    "가격": ticker.price,
-                })
-            
-            if chart_data:
-                df = pd.DataFrame(chart_data)
-                fig = px.bar(
-                    df,
-                    x="코인",
-                    y="가격",
-                    color="거래소",
-                    barmode="group",
-                    title="거래소별 가격 비교",
-                )
-                st.plotly_chart(fig, use_container_width=True)
-    
-    # 자동 새로고침
-    if auto_refresh:
-        time.sleep(2)
-        st.rerun()
-
-
-def show_static_prices(exchange_name: str):
-    """정적 시세 표시 (REST API)"""
-    st.subheader("📈 시세 조회")
-    
-    if st.button("🔄 새로고침"):
-        st.rerun()
     
     try:
         exchange = get_exchange(exchange_name)
-        tickers = exchange.get_tickers(SUPPORTED_COINS)
         
-        if not tickers:
-            st.warning("시세 정보를 가져올 수 없습니다.")
+        # 캔들 데이터 조회
+        candles = exchange.get_candles(symbol, interval="1d", limit=period_days)
+        
+        if not candles:
+            st.warning("시세 데이터를 가져올 수 없습니다.")
             return
         
-        # 시세 테이블
-        data = []
-        for ticker in tickers:
-            change_color = "🟢" if ticker.change_24h >= 0 else "🔴"
-            data.append({
-                "코인": ticker.symbol,
-                "현재가": f"₩{ticker.price:,.0f}",
-                "변동률": f"{change_color} {ticker.change_24h:+.2f}%",
-                "24h 고가": f"₩{ticker.high_24h:,.0f}",
-                "24h 저가": f"₩{ticker.low_24h:,.0f}",
-                "거래소": ticker.exchange.upper(),
-            })
+        df = pd.DataFrame(candles)
+        df["timestamp"] = pd.to_datetime(df["timestamp"])
+        df = df.sort_values("timestamp", ascending=False)
         
-        df = pd.DataFrame(data)
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        # 현재가 및 변동
+        latest = df.iloc[0]
+        prev = df.iloc[1] if len(df) > 1 else latest
         
-        # 차트
-        col1, col2 = st.columns(2)
+        change = latest["close"] - prev["close"]
+        change_pct = (change / prev["close"]) * 100 if prev["close"] else 0
+        
+        # 메트릭
+        col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            prices = [t.price for t in tickers]
-            symbols = [t.symbol for t in tickers]
-            
-            fig = px.bar(x=symbols, y=prices, title="코인별 현재가")
-            fig.update_layout(yaxis_title="KRW")
-            st.plotly_chart(fig, use_container_width=True)
+            st.metric(
+                f"{symbol} ({exchange_name.upper()})",
+                f"₩{latest['close']:,.0f}",
+                f"{change_pct:+.2f}%",
+            )
         
         with col2:
-            changes = [t.change_24h for t in tickers]
-            colors = ["green" if c >= 0 else "red" for c in changes]
-            
-            fig = go.Figure(data=[
-                go.Bar(x=symbols, y=changes, marker_color=colors)
-            ])
-            fig.update_layout(title="24시간 변동률", yaxis_title="%")
-            st.plotly_chart(fig, use_container_width=True)
-            
+            st.metric("고가", f"₩{latest['high']:,.0f}")
+        
+        with col3:
+            st.metric("저가", f"₩{latest['low']:,.0f}")
+        
+        with col4:
+            st.metric("거래량", f"{latest['volume']:,.2f}")
+        
+        st.divider()
+        
+        # 차트
+        fig = go.Figure()
+        
+        # 캔들스틱
+        fig.add_trace(go.Candlestick(
+            x=df["timestamp"],
+            open=df["open"],
+            high=df["high"],
+            low=df["low"],
+            close=df["close"],
+            name="가격",
+            increasing_line_color='#00c853',
+            decreasing_line_color='#ff4444',
+        ))
+        
+        # 이동평균선
+        df_sorted = df.sort_values("timestamp")
+        df_sorted["MA5"] = df_sorted["close"].rolling(5).mean()
+        df_sorted["MA20"] = df_sorted["close"].rolling(20).mean()
+        
+        fig.add_trace(go.Scatter(
+            x=df_sorted["timestamp"],
+            y=df_sorted["MA5"],
+            name="MA5",
+            line=dict(color="orange", width=1),
+        ))
+        
+        fig.add_trace(go.Scatter(
+            x=df_sorted["timestamp"],
+            y=df_sorted["MA20"],
+            name="MA20",
+            line=dict(color="purple", width=1),
+        ))
+        
+        fig.update_layout(
+            title=f"{symbol} 일봉 차트 ({period_days}일)",
+            xaxis_rangeslider_visible=False,
+            height=500,
+            template="plotly_dark",
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # 일일 종가 테이블
+        st.subheader("📋 일일 종가 데이터")
+        
+        display_df = df[["timestamp", "open", "high", "low", "close", "volume"]].copy()
+        display_df.columns = ["날짜", "시가", "고가", "저가", "종가", "거래량"]
+        display_df["날짜"] = display_df["날짜"].dt.strftime("%Y-%m-%d")
+        display_df["시가"] = display_df["시가"].apply(lambda x: f"₩{x:,.0f}")
+        display_df["고가"] = display_df["고가"].apply(lambda x: f"₩{x:,.0f}")
+        display_df["저가"] = display_df["저가"].apply(lambda x: f"₩{x:,.0f}")
+        display_df["종가"] = display_df["종가"].apply(lambda x: f"₩{x:,.0f}")
+        display_df["거래량"] = display_df["거래량"].apply(lambda x: f"{x:,.2f}")
+        
+        st.dataframe(display_df.head(30), use_container_width=True, hide_index=True)
+        
     except Exception as e:
         st.error(f"시세 조회 실패: {e}")
 
 
-def run_analysis(exchange_name: str, symbol: str, strategy_name: str, initial_balance: float):
-    """분석 실행"""
-    with st.spinner("백테스트 실행 중..."):
-        try:
-            exchange = get_exchange(exchange_name)
+def run_full_analysis(exchange_name: str, symbol: str, initial_balance: float, period_days: int):
+    """전체 분석 실행"""
+    progress = st.progress(0, "분석 준비 중...")
+    
+    try:
+        exchange = get_exchange(exchange_name)
+        candles = exchange.get_candles(symbol, interval="1d", limit=period_days)
+        
+        if not candles:
+            st.error("캔들 데이터를 가져올 수 없습니다.")
+            return
+        
+        results = []
+        strategy_names = list(STRATEGIES.keys())
+        
+        for i, strategy_name in enumerate(strategy_names):
+            progress.progress(
+                (i + 1) / len(strategy_names),
+                f"분석 중: {STRATEGIES[strategy_name].display_name}..."
+            )
+            
             strategy = get_strategy(strategy_name)
-            
-            candles = exchange.get_candles(symbol, interval="1d", limit=100)
-            
-            if not candles:
-                st.error("캔들 데이터를 가져올 수 없습니다.")
-                return
-            
             engine = SimulationEngine(
                 strategy=strategy,
                 exchange=exchange,
@@ -305,162 +247,352 @@ def run_analysis(exchange_name: str, symbol: str, strategy_name: str, initial_ba
             )
             
             result = engine.backtest(symbol, candles)
-            
-            key = f"{exchange_name}_{symbol}_{strategy_name}"
-            st.session_state.simulation_results[key] = {
-                "result": result,
-                "candles": candles,
-                "timestamp": datetime.now(),
-            }
-            
-            st.success(f"✅ 백테스트 완료! ({strategy.display_name})")
-            
-        except Exception as e:
-            st.error(f"분석 실패: {e}")
+            result["candles"] = candles
+            results.append(result)
+        
+        # 결과 저장
+        st.session_state.analysis_results = {
+            "results": results,
+            "symbol": symbol,
+            "exchange": exchange_name,
+            "initial_balance": initial_balance,
+            "period_days": period_days,
+            "timestamp": datetime.now(),
+        }
+        
+        # 기간별 수익률 계산
+        calculate_period_returns(results, candles, initial_balance)
+        
+        progress.empty()
+        st.success("✅ 분석 완료!")
+        st.rerun()
+        
+    except Exception as e:
+        progress.empty()
+        st.error(f"분석 실패: {e}")
 
 
-def compare_all_strategies(exchange_name: str, symbol: str, initial_balance: float):
-    """모든 전략 비교"""
-    with st.spinner("전체 전략 비교 중..."):
-        try:
-            exchange = get_exchange(exchange_name)
-            candles = exchange.get_candles(symbol, interval="1d", limit=100)
-            
-            if not candles:
-                st.error("캔들 데이터를 가져올 수 없습니다.")
-                return
-            
-            results = []
-            for strategy_name in STRATEGIES.keys():
-                strategy = get_strategy(strategy_name)
-                engine = SimulationEngine(
-                    strategy=strategy,
-                    exchange=exchange,
-                    initial_balance=initial_balance,
-                )
-                result = engine.backtest(symbol, candles)
-                results.append(result)
-            
-            st.session_state.comparison_results = {
-                "results": results,
-                "symbol": symbol,
-                "exchange": exchange_name,
-                "timestamp": datetime.now(),
-            }
-            
-            st.success("✅ 전체 전략 비교 완료!")
-            
-        except Exception as e:
-            st.error(f"비교 실패: {e}")
-
-
-def show_analysis_results():
-    """분석 결과 표시"""
-    st.subheader("🎯 백테스트 결과")
-    
-    if not st.session_state.simulation_results:
-        st.info("사이드바에서 '백테스트 실행'을 클릭하세요.")
+def calculate_period_returns(results: List[dict], candles: List[dict], initial_balance: float):
+    """기간별 수익률 계산 (일/주/월)"""
+    if not candles:
         return
-    
-    latest_key = list(st.session_state.simulation_results.keys())[-1]
-    data = st.session_state.simulation_results[latest_key]
-    result = data["result"]
-    candles = data["candles"]
-    
-    if "error" in result:
-        st.error(result["error"])
-        return
-    
-    portfolio = result.get("portfolio", {})
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric("총 자산", f"₩{portfolio.get('total_value', 0):,.0f}")
-    
-    with col2:
-        profit = portfolio.get('profit_loss', 0)
-        profit_pct = portfolio.get('profit_loss_pct', 0)
-        st.metric("수익/손실", f"₩{profit:,.0f}", f"{profit_pct:+.2f}%")
-    
-    with col3:
-        st.metric("총 거래", portfolio.get('total_trades', 0))
-    
-    with col4:
-        signals = result.get('signals', {})
-        st.metric("매수/매도", f"{signals.get('buy', 0)} / {signals.get('sell', 0)}")
-    
-    st.divider()
-    
-    # 캔들 차트
-    st.subheader(f"📊 {result.get('symbol', '')} 가격 차트")
     
     df = pd.DataFrame(candles)
     df["timestamp"] = pd.to_datetime(df["timestamp"])
+    df = df.sort_values("timestamp")
     
-    fig = go.Figure()
-    fig.add_trace(go.Candlestick(
-        x=df["timestamp"],
-        open=df["open"],
-        high=df["high"],
-        low=df["low"],
-        close=df["close"],
-        name="가격",
-    ))
-    fig.update_layout(xaxis_rangeslider_visible=False, height=400)
-    st.plotly_chart(fig, use_container_width=True)
+    now = df["timestamp"].max()
+    
+    periods = {
+        "일간": 1,
+        "주간": 7,
+        "월간": 30,
+    }
+    
+    period_results = []
+    
+    for result in results:
+        if "error" in result:
+            continue
+        
+        strategy_name = result["strategy"]
+        portfolio = result.get("portfolio", {})
+        total_return_pct = portfolio.get("profit_loss_pct", 0)
+        total_days = len(candles)
+        
+        # 기간별 수익률 추정 (단순 선형 환산)
+        daily_return = total_return_pct / total_days if total_days > 0 else 0
+        
+        period_results.append({
+            "strategy": strategy_name,
+            "display_name": STRATEGIES[strategy_name].display_name,
+            "total_return_pct": total_return_pct,
+            "daily_return_pct": daily_return,
+            "weekly_return_pct": daily_return * 7,
+            "monthly_return_pct": daily_return * 30,
+            "total_value": portfolio.get("total_value", initial_balance),
+            "total_trades": portfolio.get("total_trades", 0),
+        })
+    
+    st.session_state.comparison_results = {
+        "period_results": period_results,
+        "timestamp": datetime.now(),
+    }
+
+
+def show_analysis_results():
+    """분석 결과 표시 (전일 종가 기준)"""
+    st.subheader("🎯 분석 결과")
+    st.caption("전일 종가 기준 백테스트 결과")
+    
+    if not st.session_state.analysis_results:
+        st.info("👈 사이드바에서 '전체 분석 실행'을 클릭하세요.")
+        return
+    
+    data = st.session_state.analysis_results
+    results = data["results"]
+    symbol = data["symbol"]
+    initial_balance = data["initial_balance"]
+    
+    # 전략 선택
+    strategy_options = [r["strategy"] for r in results if "error" not in r]
+    
+    if not strategy_options:
+        st.warning("분석 결과가 없습니다.")
+        return
+    
+    selected_strategy = st.selectbox(
+        "전략 선택",
+        options=strategy_options,
+        format_func=lambda x: STRATEGIES[x].display_name,
+    )
+    
+    # 선택된 전략 결과
+    result = next(r for r in results if r["strategy"] == selected_strategy)
+    portfolio = result.get("portfolio", {})
+    signals = result.get("signals", {})
+    candles = result.get("candles", [])
+    
+    st.divider()
+    
+    # 요약 메트릭
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
+    profit = portfolio.get("profit_loss", 0)
+    profit_pct = portfolio.get("profit_loss_pct", 0)
+    
+    with col1:
+        st.metric("초기 자금", f"₩{initial_balance:,.0f}")
+    
+    with col2:
+        st.metric(
+            "최종 자산",
+            f"₩{portfolio.get('total_value', 0):,.0f}",
+        )
+    
+    with col3:
+        delta_color = "normal" if profit >= 0 else "inverse"
+        st.metric(
+            "수익/손실",
+            f"₩{profit:,.0f}",
+            f"{profit_pct:+.2f}%",
+            delta_color=delta_color,
+        )
+    
+    with col4:
+        st.metric("총 거래", portfolio.get("total_trades", 0))
+    
+    with col5:
+        st.metric(
+            "매수/매도",
+            f"{signals.get('buy', 0)} / {signals.get('sell', 0)}",
+        )
+    
+    st.divider()
+    
+    # 전략 설명
+    strategy_obj = get_strategy(selected_strategy)
+    st.markdown(f"**📌 전략 설명:** {strategy_obj.description}")
+    
+    # 차트
+    if candles:
+        df = pd.DataFrame(candles)
+        df["timestamp"] = pd.to_datetime(df["timestamp"])
+        df = df.sort_values("timestamp")
+        
+        # 지표 계산
+        df = strategy_obj.calculate_indicators(df)
+        
+        fig = go.Figure()
+        
+        # 캔들
+        fig.add_trace(go.Candlestick(
+            x=df["timestamp"],
+            open=df["open"],
+            high=df["high"],
+            low=df["low"],
+            close=df["close"],
+            name="가격",
+        ))
+        
+        # 전략별 지표 표시
+        if selected_strategy == "sma_cross":
+            if "sma_short" in df.columns:
+                fig.add_trace(go.Scatter(
+                    x=df["timestamp"], y=df["sma_short"],
+                    name="SMA 단기", line=dict(color="orange"),
+                ))
+            if "sma_long" in df.columns:
+                fig.add_trace(go.Scatter(
+                    x=df["timestamp"], y=df["sma_long"],
+                    name="SMA 장기", line=dict(color="purple"),
+                ))
+        
+        elif selected_strategy == "bollinger":
+            if "bb_upper" in df.columns:
+                fig.add_trace(go.Scatter(
+                    x=df["timestamp"], y=df["bb_upper"],
+                    name="상단 밴드", line=dict(color="gray", dash="dash"),
+                ))
+                fig.add_trace(go.Scatter(
+                    x=df["timestamp"], y=df["bb_lower"],
+                    name="하단 밴드", line=dict(color="gray", dash="dash"),
+                    fill="tonexty", fillcolor="rgba(128,128,128,0.1)",
+                ))
+        
+        fig.update_layout(
+            title=f"{symbol} - {STRATEGIES[selected_strategy].display_name}",
+            xaxis_rangeslider_visible=False,
+            height=500,
+            template="plotly_dark",
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # 보유 포지션
+    positions = portfolio.get("positions", [])
+    if positions:
+        st.subheader("💼 현재 보유 포지션")
+        pos_df = pd.DataFrame(positions)
+        st.dataframe(pos_df, use_container_width=True, hide_index=True)
 
 
 def show_strategy_comparison():
-    """전략 비교 표시"""
+    """전략별 수익률 비교 (일/주/월)"""
     st.subheader("📊 전략별 수익률 비교")
+    st.caption("일간 / 주간 / 월간 수익률 비교")
     
-    if "comparison_results" not in st.session_state:
-        st.info("'전체 전략 비교' 버튼을 클릭하세요.")
+    if not st.session_state.comparison_results:
+        st.info("👈 사이드바에서 '전체 분석 실행'을 클릭하세요.")
         return
     
-    data = st.session_state.comparison_results
-    results = data["results"]
+    period_results = st.session_state.comparison_results.get("period_results", [])
     
-    comparison = []
-    for r in results:
-        if "error" in r:
-            continue
-        portfolio = r.get("portfolio", {})
-        comparison.append({
-            "전략": STRATEGIES[r["strategy"]].display_name,
-            "총 자산": f"₩{portfolio.get('total_value', 0):,.0f}",
-            "수익률": f"{portfolio.get('profit_loss_pct', 0):+.2f}%",
-            "수익금": f"₩{portfolio.get('profit_loss', 0):,.0f}",
-            "거래 횟수": portfolio.get('total_trades', 0),
-        })
-    
-    if not comparison:
+    if not period_results:
         st.warning("비교 결과가 없습니다.")
         return
     
-    comparison.sort(
-        key=lambda x: float(x["수익률"].replace("%", "").replace("+", "")),
-        reverse=True,
+    # 기간 선택
+    period_type = st.radio(
+        "비교 기간",
+        options=["전체", "일간", "주간", "월간"],
+        horizontal=True,
     )
     
-    df = pd.DataFrame(comparison)
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    # 데이터 준비
+    if period_type == "전체":
+        return_key = "total_return_pct"
+        title = "전체 기간 수익률"
+    elif period_type == "일간":
+        return_key = "daily_return_pct"
+        title = "일간 수익률 (평균)"
+    elif period_type == "주간":
+        return_key = "weekly_return_pct"
+        title = "주간 수익률 (추정)"
+    else:
+        return_key = "monthly_return_pct"
+        title = "월간 수익률 (추정)"
+    
+    # 정렬
+    sorted_results = sorted(period_results, key=lambda x: x[return_key], reverse=True)
+    
+    # 테이블
+    table_data = []
+    for i, r in enumerate(sorted_results):
+        rank_emoji = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else f"{i+1}"
+        table_data.append({
+            "순위": rank_emoji,
+            "전략": r["display_name"],
+            "전체 수익률": f"{r['total_return_pct']:+.2f}%",
+            "일간": f"{r['daily_return_pct']:+.3f}%",
+            "주간": f"{r['weekly_return_pct']:+.2f}%",
+            "월간": f"{r['monthly_return_pct']:+.2f}%",
+            "최종 자산": f"₩{r['total_value']:,.0f}",
+            "거래 횟수": r["total_trades"],
+        })
+    
+    st.dataframe(pd.DataFrame(table_data), use_container_width=True, hide_index=True)
+    
+    st.divider()
     
     # 차트
-    returns = [float(c["수익률"].replace("%", "").replace("+", "")) for c in comparison]
-    strategies = [c["전략"] for c in comparison]
-    colors = ["green" if r >= 0 else "red" for r in returns]
+    col1, col2 = st.columns(2)
     
-    fig = go.Figure(data=[
-        go.Bar(x=strategies, y=returns, marker_color=colors,
-               text=[f"{r:+.2f}%" for r in returns], textposition="outside")
-    ])
-    fig.update_layout(title="전략별 수익률", yaxis_title="%", height=400)
+    with col1:
+        # 막대 차트
+        strategies = [r["display_name"] for r in sorted_results]
+        returns = [r[return_key] for r in sorted_results]
+        colors = ["#00c853" if r >= 0 else "#ff4444" for r in returns]
+        
+        fig = go.Figure(data=[
+            go.Bar(
+                x=strategies,
+                y=returns,
+                marker_color=colors,
+                text=[f"{r:+.2f}%" for r in returns],
+                textposition="outside",
+            )
+        ])
+        
+        fig.update_layout(
+            title=title,
+            yaxis_title="수익률 (%)",
+            height=400,
+            template="plotly_dark",
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        # 파이 차트 (자산 분포)
+        fig = go.Figure(data=[
+            go.Pie(
+                labels=[r["display_name"] for r in sorted_results],
+                values=[r["total_value"] for r in sorted_results],
+                hole=0.4,
+            )
+        ])
+        
+        fig.update_layout(
+            title="최종 자산 분포",
+            height=400,
+            template="plotly_dark",
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # 최고 성과 전략
+    best = sorted_results[0]
+    st.success(f"🏆 **최고 성과 전략:** {best['display_name']} ({best['total_return_pct']:+.2f}%)")
+    
+    # 기간별 비교 차트
+    st.divider()
+    st.subheader("📈 기간별 수익률 비교")
+    
+    # 그룹 바 차트
+    fig = go.Figure()
+    
+    periods = ["일간", "주간", "월간"]
+    keys = ["daily_return_pct", "weekly_return_pct", "monthly_return_pct"]
+    
+    for r in sorted_results:
+        fig.add_trace(go.Bar(
+            name=r["display_name"],
+            x=periods,
+            y=[r[k] for k in keys],
+            text=[f"{r[k]:+.2f}%" for k in keys],
+            textposition="outside",
+        ))
+    
+    fig.update_layout(
+        barmode="group",
+        title="전략별 기간 수익률",
+        yaxis_title="수익률 (%)",
+        height=400,
+        template="plotly_dark",
+    )
+    
     st.plotly_chart(fig, use_container_width=True)
-    
-    best = comparison[0]
-    st.success(f"🏆 최고 성과: **{best['전략']}** ({best['수익률']})")
 
 
 if __name__ == "__main__":
