@@ -737,6 +737,134 @@ def show_strategy_comparison(current_settings: dict = None):
     )
     
     st.plotly_chart(fig, use_container_width=True)
+    
+    # 투자 의견 섹션
+    show_investment_opinion(sorted_results, st.session_state.comparison_results, current_settings)
+
+
+def show_investment_opinion(sorted_results: List[dict], comparison_data: dict, settings: dict):
+    """종합 투자 의견 표시"""
+    st.divider()
+    st.subheader("💡 종합 투자 의견")
+    
+    if not sorted_results or not comparison_data:
+        st.info("분석 데이터가 필요합니다.")
+        return
+    
+    price_returns = comparison_data.get("price_returns", {})
+    daily_return = price_returns.get("daily", 0)
+    weekly_return = price_returns.get("weekly", 0)
+    monthly_return = price_returns.get("monthly", 0)
+    
+    # 최고 성과 전략
+    best_strategy = sorted_results[0]
+    worst_strategy = sorted_results[-1]
+    
+    # 시장 트렌드 분석
+    def get_trend(ret: float) -> tuple:
+        if ret > 3:
+            return "강세 📈", "success"
+        elif ret > 0:
+            return "약세 상승 📊", "info"
+        elif ret > -3:
+            return "약세 하락 📉", "warning"
+        else:
+            return "강한 하락 🔻", "error"
+    
+    daily_trend, daily_color = get_trend(daily_return)
+    weekly_trend, weekly_color = get_trend(weekly_return)
+    monthly_trend, monthly_color = get_trend(monthly_return)
+    
+    # 시장 상황 카드
+    st.markdown("### 📊 시장 상황")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("일간 트렌드", daily_trend, f"{daily_return:+.2f}%")
+    with col2:
+        st.metric("주간 트렌드", weekly_trend, f"{weekly_return:+.2f}%")
+    with col3:
+        st.metric("월간 트렌드", monthly_trend, f"{monthly_return:+.2f}%")
+    
+    st.markdown("---")
+    
+    # 종합 의견
+    st.markdown("### 🎯 전략 추천")
+    
+    # 시장 상황에 따른 추천 로직
+    avg_return = (daily_return + weekly_return + monthly_return) / 3
+    
+    # 추천 의견 생성
+    opinions = []
+    
+    # 1. 최고 성과 전략
+    opinions.append(f"**🏆 최고 성과 전략:** {best_strategy['display_name']} (전체 수익률 {best_strategy['total_return_pct']:+.2f}%)")
+    
+    # 2. 시장 상황별 추천
+    if avg_return > 2:
+        market_condition = "상승장"
+        opinions.append(f"**📈 현재 시장:** {market_condition} - 추세 추종 전략(SMA 크로스, MACD)이 유리합니다.")
+        recommended = "SMA 크로스오버" if any(r["strategy"] == "sma_cross" for r in sorted_results) else best_strategy["display_name"]
+    elif avg_return < -2:
+        market_condition = "하락장"
+        opinions.append(f"**📉 현재 시장:** {market_condition} - 역추세 전략(RSI 과매도, 볼린저 밴드)이 유리합니다.")
+        recommended = "RSI" if any(r["strategy"] == "rsi" for r in sorted_results) else best_strategy["display_name"]
+    else:
+        market_condition = "횡보장"
+        opinions.append(f"**📊 현재 시장:** {market_condition} - 레인지 전략(볼린저 밴드)이 유리합니다.")
+        recommended = "볼린저 밴드" if any(r["strategy"] == "bollinger" for r in sorted_results) else best_strategy["display_name"]
+    
+    # 3. 기간별 추천
+    if weekly_return > 0 and monthly_return < 0:
+        opinions.append("**⚠️ 주의:** 단기 반등 중이나 중기 하락 추세입니다. 단기 매매 권장.")
+    elif weekly_return < 0 and monthly_return > 0:
+        opinions.append("**💡 기회:** 단기 조정 중이나 중기 상승 추세입니다. 매수 기회 검토.")
+    elif weekly_return > 0 and monthly_return > 0:
+        opinions.append("**✅ 긍정적:** 단기/중기 모두 상승 추세입니다. 추세 추종 전략 권장.")
+    else:
+        opinions.append("**🛡️ 방어적:** 단기/중기 모두 하락 추세입니다. 현금 비중 확대 권장.")
+    
+    # 의견 출력
+    for opinion in opinions:
+        st.markdown(opinion)
+    
+    st.markdown("---")
+    
+    # 전략별 요약 테이블
+    st.markdown("### 📋 전략별 요약")
+    
+    summary_data = []
+    for i, r in enumerate(sorted_results):
+        # 전략별 특징
+        strategy_traits = {
+            "sma_cross": "추세 추종형 - 상승장에 강함",
+            "rsi": "역추세형 - 과매수/과매도 포착",
+            "bollinger": "변동성 활용 - 횡보장에 강함",
+            "macd": "모멘텀 기반 - 추세 전환 포착",
+        }
+        
+        trait = strategy_traits.get(r["strategy"], "일반 전략")
+        
+        # 추천 여부
+        if i == 0:
+            recommendation = "⭐ 최우선 추천"
+        elif r["total_return_pct"] > 0:
+            recommendation = "✅ 양호"
+        else:
+            recommendation = "⚠️ 주의"
+        
+        summary_data.append({
+            "순위": f"{i+1}위",
+            "전략": r["display_name"],
+            "전체 수익률": f"{r['total_return_pct']:+.2f}%",
+            "특징": trait,
+            "추천": recommendation,
+        })
+    
+    st.dataframe(pd.DataFrame(summary_data), use_container_width=True, hide_index=True)
+    
+    # 면책 조항
+    st.caption("⚠️ 본 분석은 과거 데이터 기반 시뮬레이션 결과이며, 실제 투자 수익을 보장하지 않습니다. 투자 결정은 본인의 판단과 책임 하에 이루어져야 합니다.")
 
 
 if __name__ == "__main__":
