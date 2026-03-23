@@ -450,10 +450,11 @@ def show_analysis_results(current_settings: dict = None):
         st.warning("분석 결과가 없습니다.")
         return
     
-    selected_strategy = st.selectbox(
+    selected_strategy = st.radio(
         "전략 선택",
         options=strategy_options,
         format_func=lambda x: STRATEGIES[x].display_name,
+        horizontal=True,
     )
     
     # 선택된 전략 결과
