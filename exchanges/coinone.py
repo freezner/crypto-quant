@@ -1,6 +1,7 @@
 """
 코인원 거래소 API
 문서: https://doc.coinone.co.kr/
+API v2: https://api.coinone.co.kr/public/v2/
 """
 from typing import List, Optional
 from exchanges.base import ExchangeBase, Ticker
@@ -15,16 +16,20 @@ class CoinoneExchange(ExchangeBase):
     name = "coinone"
     base_url = "https://api.coinone.co.kr"
     
+    def _calc_change_pct(self, first: float, last: float) -> float:
+        """변동률 계산 (시가 대비)"""
+        if first <= 0:
+            return 0.0
+        return ((last - first) / first) * 100
+    
     def get_ticker(self, symbol: str) -> Optional[Ticker]:
-        """단일 코인 시세 조회"""
+        """단일 코인 시세 조회 (v2 API)"""
         try:
-            data = self._get("/ticker", params={
-                "currency": symbol.lower(),
-                "quote_currency": "krw",
-            })
+            # v2 API: /public/v2/ticker_new/KRW/{SYMBOL}
+            data = self._get(f"/public/v2/ticker_new/KRW/{symbol.upper()}")
             
             if data.get("result") != "success":
-                logger.warning(f"[coinone] API 오류: {data.get('errorMsg')}")
+                logger.warning(f"[coinone] API 오류: {data.get('error_code')}")
                 return None
             
             tickers = data.get("tickers", [])
@@ -32,12 +37,14 @@ class CoinoneExchange(ExchangeBase):
                 return None
             
             item = tickers[0]
+            first_price = float(item.get("first", 0))
+            last_price = float(item.get("last", 0))
             
             return Ticker(
                 symbol=symbol.upper(),
-                price=float(item.get("last", 0)),
-                volume_24h=float(item.get("volume", 0)),
-                change_24h=float(item.get("yesterday_last_pct", 0)),
+                price=last_price,
+                volume_24h=float(item.get("target_volume", 0)),
+                change_24h=self._calc_change_pct(first_price, last_price),
                 high_24h=float(item.get("high", 0)),
                 low_24h=float(item.get("low", 0)),
                 exchange=self.name,
@@ -47,15 +54,13 @@ class CoinoneExchange(ExchangeBase):
             return None
     
     def get_tickers(self, symbols: List[str] = None) -> List[Ticker]:
-        """여러 코인 시세 조회"""
+        """여러 코인 시세 조회 (v2 API)"""
         try:
-            # 전체 시세 조회
-            data = self._get("/ticker_utc_new", params={
-                "quote_currency": "krw",
-            })
+            # v2 API: /public/v2/ticker_new/KRW
+            data = self._get("/public/v2/ticker_new/KRW")
             
             if data.get("result") != "success":
-                logger.warning(f"[coinone] API 오류: {data.get('errorMsg')}")
+                logger.warning(f"[coinone] API 오류: {data.get('error_code')}")
                 return []
             
             tickers = []
@@ -65,11 +70,14 @@ class CoinoneExchange(ExchangeBase):
                 if symbols and symbol not in [s.upper() for s in symbols]:
                     continue
                 
+                first_price = float(item.get("first", 0))
+                last_price = float(item.get("last", 0))
+                
                 tickers.append(Ticker(
                     symbol=symbol,
-                    price=float(item.get("last", 0)),
-                    volume_24h=float(item.get("volume", 0)),
-                    change_24h=float(item.get("yesterday_last_pct", 0)),
+                    price=last_price,
+                    volume_24h=float(item.get("target_volume", 0)),
+                    change_24h=self._calc_change_pct(first_price, last_price),
                     high_24h=float(item.get("high", 0)),
                     low_24h=float(item.get("low", 0)),
                     exchange=self.name,
@@ -82,12 +90,10 @@ class CoinoneExchange(ExchangeBase):
             return []
     
     def get_orderbook(self, symbol: str) -> dict:
-        """호가창 조회"""
+        """호가창 조회 (v2 API)"""
         try:
-            data = self._get("/orderbook", params={
-                "currency": symbol.lower(),
-                "quote_currency": "krw",
-            })
+            # v2 API: /public/v2/orderbook/KRW/{SYMBOL}
+            data = self._get(f"/public/v2/orderbook/KRW/{symbol.upper()}")
             
             if data.get("result") != "success":
                 return {"bids": [], "asks": []}
