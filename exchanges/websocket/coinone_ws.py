@@ -23,7 +23,7 @@ class CoinoneWebSocket(WebSocketBase):
     def __init__(self):
         super().__init__()
         self._session = None
-        self._symbols = []
+        self._poll_symbols = []
         self._prev_prices = {}
     
     async def _connect(self):
@@ -35,12 +35,19 @@ class CoinoneWebSocket(WebSocketBase):
     
     async def _subscribe(self, symbols: List[str]):
         """심볼 구독 (폴링 대상 설정)"""
-        self._symbols = [s.upper() for s in symbols]
-        logger.info(f"[coinone] 구독: {self._symbols}")
+        self._poll_symbols = [s.upper() for s in symbols]
+        logger.info(f"[coinone] 구독: {self._poll_symbols}")
     
-    async def _receive_loop(self):
-        """폴링 루프 (WebSocket 대신)"""
-        while self._running and self._session:
+    async def _run_async(self, symbols: List[str]):
+        """비동기 실행 루프 (폴링 방식으로 오버라이드)"""
+        self._symbols = symbols
+        self.is_running = True
+        
+        await self._connect()
+        await self._subscribe(symbols)
+        
+        # 폴링 루프
+        while self.is_running:
             try:
                 await self._poll_prices()
                 await asyncio.sleep(self.poll_interval)
@@ -49,10 +56,15 @@ class CoinoneWebSocket(WebSocketBase):
             except Exception as e:
                 logger.error(f"[coinone] 폴링 오류: {e}")
                 await asyncio.sleep(5)
+        
+        # 세션 종료
+        if self._session:
+            await self._session.close()
+            self._session = None
     
     async def _poll_prices(self):
         """REST API로 가격 조회"""
-        if not self._session or not self._symbols:
+        if not self._session or not self._poll_symbols:
             return
         
         try:
@@ -68,7 +80,7 @@ class CoinoneWebSocket(WebSocketBase):
                 for item in data.get("tickers", []):
                     symbol = item.get("target_currency", "").upper()
                     
-                    if symbol not in self._symbols:
+                    if symbol not in self._poll_symbols:
                         continue
                     
                     await self._handle_ticker(item)
@@ -106,14 +118,6 @@ class CoinoneWebSocket(WebSocketBase):
     
     def stop(self):
         """종료"""
-        self._running = False
-        if self._session:
-            asyncio.create_task(self._close_session())
+        self.is_running = False
         self.is_connected = False
         logger.info("[coinone] 종료")
-    
-    async def _close_session(self):
-        """세션 종료"""
-        if self._session:
-            await self._session.close()
-            self._session = None
