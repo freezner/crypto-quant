@@ -33,3 +33,4 @@ apscheduler>=3.10.0
 
 # Development
 pytest>=7.4.0
+aiohttp>=3.9.0

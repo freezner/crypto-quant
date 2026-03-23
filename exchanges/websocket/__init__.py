@@ -5,11 +5,13 @@
 from exchanges.websocket.base import WebSocketBase, TickerUpdate
 from exchanges.websocket.upbit_ws import UpbitWebSocket
 from exchanges.websocket.bithumb_ws import BithumbWebSocket
+from exchanges.websocket.coinone_ws import CoinoneWebSocket
 
 # 지원 거래소 웹소켓
 WEBSOCKETS = {
     "upbit": UpbitWebSocket,
     "bithumb": BithumbWebSocket,
+    "coinone": CoinoneWebSocket,
 }
 
 
