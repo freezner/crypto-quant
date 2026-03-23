@@ -4,6 +4,7 @@
 - 분석 결과: 전일 종가 기준 분석
 - 전략 비교: 일/주/월 수익률 비교
 """
+import os
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -42,7 +43,14 @@ def main():
     st.markdown("*퀀트 전략 백테스팅 및 수익률 비교*")
     
     # 실시간 시세 링크
-    st.info("📡 **실시간 시세**는 [여기서 확인](http://localhost:8000) (FastAPI 서버)")
+    # 실시간 시세 서버 URL (로컬: localhost:8000, 배포시 환경변수로 설정)
+    realtime_url = os.getenv("REALTIME_API_URL", "")
+    if realtime_url:
+        st.info(f"📡 **실시간 시세**는 [여기서 확인]({realtime_url})")
+    elif os.getenv("STREAMLIT_SERVER_HEADLESS"):  # 배포 환경 감지
+        pass  # 배포 환경에서는 링크 숨김
+    else:
+        st.info("📡 **실시간 시세**는 [여기서 확인](http://localhost:8000) (로컬 FastAPI 서버)")
     
     # 사이드바
     with st.sidebar:
