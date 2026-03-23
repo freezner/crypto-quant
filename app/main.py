@@ -657,7 +657,7 @@ def show_strategy_comparison(current_settings: dict = None):
             f"주간 ({weekly_range})": f"{r['weekly_return_pct']:+.2f}%",
             f"월간 ({monthly_range})": f"{r['monthly_return_pct']:+.2f}%",
             "최종 자산": f"₩{r['total_value']:,.0f}",
-            "거래 횟수": r["total_trades"],
+            "거래 횟수": f"{r['total_trades']:,}회",
         })
     
     st.dataframe(pd.DataFrame(table_data), use_container_width=True, hide_index=True)
