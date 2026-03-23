@@ -33,6 +33,8 @@ if "analysis_results" not in st.session_state:
     st.session_state.analysis_results = {}
 if "comparison_results" not in st.session_state:
     st.session_state.comparison_results = {}
+if "last_analysis_settings" not in st.session_state:
+    st.session_state.last_analysis_settings = {}
 
 
 def main():
@@ -83,9 +85,17 @@ def main():
         
         st.divider()
         
-        # 분석 실행 버튼
+        # 분석 실행 버튼 (수동 실행용)
         if st.button("🔍 전체 분석 실행", type="primary", use_container_width=True):
             run_full_analysis(exchange_name, symbol, initial_balance, period_days)
+    
+    # 현재 설정을 session_state에 저장
+    current_settings = {
+        "exchange": exchange_name,
+        "symbol": symbol,
+        "initial_balance": initial_balance,
+        "period_days": period_days,
+    }
     
     # 메인 컨텐츠
     tab1, tab2, tab3 = st.tabs([
@@ -98,10 +108,10 @@ def main():
         show_daily_prices(exchange_name, symbol, period_days)
     
     with tab2:
-        show_analysis_results()
+        show_analysis_results(current_settings)
     
     with tab3:
-        show_strategy_comparison()
+        show_strategy_comparison(current_settings)
 
 
 def show_daily_prices(exchange_name: str, symbol: str, period_days: int):
@@ -218,26 +228,28 @@ def show_daily_prices(exchange_name: str, symbol: str, period_days: int):
         st.error(f"시세 조회 실패: {e}")
 
 
-def run_full_analysis(exchange_name: str, symbol: str, initial_balance: float, period_days: int):
+def run_full_analysis(exchange_name: str, symbol: str, initial_balance: float, period_days: int, silent: bool = False):
     """전체 분석 실행"""
-    progress = st.progress(0, "분석 준비 중...")
+    progress = None if silent else st.progress(0, "분석 준비 중...")
     
     try:
         exchange = get_exchange(exchange_name)
         candles = exchange.get_candles(symbol, interval="1d", limit=period_days)
         
         if not candles:
-            st.error("캔들 데이터를 가져올 수 없습니다.")
+            if not silent:
+                st.error("캔들 데이터를 가져올 수 없습니다.")
             return
         
         results = []
         strategy_names = list(STRATEGIES.keys())
         
         for i, strategy_name in enumerate(strategy_names):
-            progress.progress(
-                (i + 1) / len(strategy_names),
-                f"분석 중: {STRATEGIES[strategy_name].display_name}..."
-            )
+            if progress:
+                progress.progress(
+                    (i + 1) / len(strategy_names),
+                    f"분석 중: {STRATEGIES[strategy_name].display_name}..."
+                )
             
             strategy = get_strategy(strategy_name)
             engine = SimulationEngine(
@@ -260,16 +272,28 @@ def run_full_analysis(exchange_name: str, symbol: str, initial_balance: float, p
             "timestamp": datetime.now(),
         }
         
+        # 마지막 분석 설정 저장
+        st.session_state.last_analysis_settings = {
+            "exchange": exchange_name,
+            "symbol": symbol,
+            "initial_balance": initial_balance,
+            "period_days": period_days,
+        }
+        
         # 기간별 수익률 계산
         calculate_period_returns(results, candles, initial_balance)
         
-        progress.empty()
-        st.success("✅ 분석 완료!")
-        st.rerun()
+        if progress:
+            progress.empty()
+        if not silent:
+            st.success("✅ 분석 완료!")
+            st.rerun()
         
     except Exception as e:
-        progress.empty()
-        st.error(f"분석 실패: {e}")
+        if progress:
+            progress.empty()
+        if not silent:
+            st.error(f"분석 실패: {e}")
 
 
 def calculate_period_returns(results: List[dict], candles: List[dict], initial_balance: float):
@@ -375,13 +399,37 @@ def calculate_period_returns(results: List[dict], candles: List[dict], initial_b
     }
 
 
-def show_analysis_results():
+def needs_reanalysis(current_settings: dict) -> bool:
+    """설정 변경 여부 확인"""
+    last = st.session_state.last_analysis_settings
+    if not last:
+        return True
+    return (
+        last.get("exchange") != current_settings["exchange"] or
+        last.get("symbol") != current_settings["symbol"] or
+        last.get("initial_balance") != current_settings["initial_balance"] or
+        last.get("period_days") != current_settings["period_days"]
+    )
+
+
+def show_analysis_results(current_settings: dict = None):
     """분석 결과 표시 (전일 종가 기준)"""
     st.subheader("🎯 분석 결과")
     st.caption("전일 종가 기준 백테스트 결과")
     
+    # 자동 분석: 데이터 없거나 설정 변경시
+    if current_settings and (not st.session_state.analysis_results or needs_reanalysis(current_settings)):
+        with st.spinner("분석 실행 중..."):
+            run_full_analysis(
+                current_settings["exchange"],
+                current_settings["symbol"],
+                current_settings["initial_balance"],
+                current_settings["period_days"],
+                silent=True
+            )
+    
     if not st.session_state.analysis_results:
-        st.info("👈 사이드바에서 '전체 분석 실행'을 클릭하세요.")
+        st.info("👈 사이드바에서 설정 후 분석이 자동 실행됩니다.")
         return
     
     data = st.session_state.analysis_results
@@ -512,13 +560,24 @@ def show_analysis_results():
         st.dataframe(pos_df, use_container_width=True, hide_index=True)
 
 
-def show_strategy_comparison():
+def show_strategy_comparison(current_settings: dict = None):
     """전략별 수익률 비교 (일/주/월)"""
     st.subheader("📊 전략별 수익률 비교")
     st.caption("일간 / 주간 / 월간 수익률 비교")
     
+    # 자동 분석: 데이터 없거나 설정 변경시
+    if current_settings and (not st.session_state.comparison_results or needs_reanalysis(current_settings)):
+        with st.spinner("분석 실행 중..."):
+            run_full_analysis(
+                current_settings["exchange"],
+                current_settings["symbol"],
+                current_settings["initial_balance"],
+                current_settings["period_days"],
+                silent=True
+            )
+    
     if not st.session_state.comparison_results:
-        st.info("👈 사이드바에서 '전체 분석 실행'을 클릭하세요.")
+        st.info("👈 사이드바에서 설정 후 분석이 자동 실행됩니다.")
         return
     
     period_results = st.session_state.comparison_results.get("period_results", [])
