@@ -70,34 +70,24 @@ def main():
             index=0,
         )
         
-        # 초기 자금 (천단위 표기 지원)
-        if "initial_balance" not in st.session_state:
-            st.session_state.initial_balance = INITIAL_BALANCE
-        
-        def parse_money(text: str) -> int:
-            """콤마 제거 후 숫자 파싱"""
-            cleaned = text.replace(",", "").replace("₩", "").replace(" ", "")
-            try:
-                return max(100000, min(1000000000, int(cleaned)))
-            except ValueError:
-                return st.session_state.initial_balance
-        
+        # 초기 자금
         def format_korean_money(amount: int) -> str:
-            """금액을 한글로 표기 (예: 1천 2백만원)"""
+            """금액을 한글로 표기 (예: 1천2백만원)"""
             if amount <= 0:
                 return "0원"
             
             result = []
+            remaining = amount
             
             # 억 단위 (1억 = 100,000,000)
-            eok = amount // 100000000
-            amount %= 100000000
+            eok = remaining // 100000000
+            remaining %= 100000000
             if eok > 0:
                 result.append(f"{eok}억")
             
             # 만 단위 처리 (1만 = 10,000)
-            man = amount // 10000
-            amount %= 10000
+            man = remaining // 10000
+            remaining %= 10000
             
             if man > 0:
                 man_parts = []
@@ -124,15 +114,15 @@ def main():
             
             return " ".join(result) + "원"
         
-        balance_input = st.text_input(
+        initial_balance = st.number_input(
             "초기 자금 (KRW)",
-            value=f"{st.session_state.initial_balance:,}",
-            help="100,000 ~ 1,000,000,000",
+            min_value=100000,
+            max_value=1000000000,
+            value=INITIAL_BALANCE,
+            step=1000000,
+            format="%d",
         )
-        initial_balance = parse_money(balance_input)
-        st.session_state.initial_balance = initial_balance
-        
-        st.caption(f"💰 {format_korean_money(initial_balance)}")
+        st.caption(f"💰 {format_korean_money(int(initial_balance))}")
         
         st.divider()
         
