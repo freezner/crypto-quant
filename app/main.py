@@ -165,7 +165,7 @@ def show_daily_prices(exchange_name: str, symbol: str, period_days: int):
             st.metric("저가", f"₩{latest['low']:,.0f}")
         
         with col4:
-            st.metric("거래량", f"{latest['volume']:,.2f}")
+            st.metric("거래량", f"{latest['volume']:,.2f} {symbol}")
         
         st.divider()
         
@@ -216,7 +216,7 @@ def show_daily_prices(exchange_name: str, symbol: str, period_days: int):
         st.subheader("📋 일일 종가 데이터")
         
         display_df = df[["timestamp", "open", "high", "low", "close", "volume"]].copy()
-        display_df.columns = ["날짜", "시가", "고가", "저가", "종가", "거래량"]
+        display_df.columns = ["날짜", "시가", "고가", "저가", "종가", f"거래량({symbol})"]
         display_df["날짜"] = display_df["날짜"].dt.strftime("%Y-%m-%d")
         display_df["시가"] = display_df["시가"].apply(lambda x: f"₩{x:,.0f}")
         display_df["고가"] = display_df["고가"].apply(lambda x: f"₩{x:,.0f}")
