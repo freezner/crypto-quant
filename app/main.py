@@ -489,12 +489,12 @@ def show_analysis_results(current_settings: dict = None):
         )
     
     with col4:
-        st.metric("총 거래", portfolio.get("total_trades", 0))
+        st.metric("총 거래", f"{portfolio.get('total_trades', 0)}회")
     
     with col5:
         st.metric(
             "매수/매도",
-            f"{signals.get('buy', 0)} / {signals.get('sell', 0)}",
+            f"{signals.get('buy', 0)}회 / {signals.get('sell', 0)}회",
         )
     
     st.divider()
