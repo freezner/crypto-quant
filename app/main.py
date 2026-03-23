@@ -25,7 +25,7 @@ from simulator import SimulationEngine
 # 페이지 설정
 st.set_page_config(
     page_title="크립토 퀀트 시뮬레이터",
-    page_icon="🪙",
+    page_icon="📊",
     layout="wide",
 )
 
@@ -39,22 +39,22 @@ if "last_analysis_settings" not in st.session_state:
 
 
 def main():
-    st.title("🪙 크립토 퀀트 시뮬레이터")
+    st.title("크립토 퀀트 시뮬레이터")
     st.markdown("*퀀트 전략 백테스팅 및 수익률 비교*")
     
     # 실시간 시세 링크
     # 실시간 시세 서버 URL (로컬: localhost:8000, 배포시 환경변수로 설정)
     realtime_url = os.getenv("REALTIME_API_URL", "")
     if realtime_url:
-        st.info(f"📡 **실시간 시세**는 [여기서 확인]({realtime_url})")
+        st.info(f"**실시간 시세**는 [여기서 확인]({realtime_url})")
     elif os.getenv("STREAMLIT_SERVER_HEADLESS"):  # 배포 환경 감지
         pass  # 배포 환경에서는 링크 숨김
     else:
-        st.info("📡 **실시간 시세**는 [여기서 확인](http://localhost:8000) (로컬 FastAPI 서버)")
+        st.info("**실시간 시세**는 [여기서 확인](http://localhost:8000) (로컬 FastAPI 서버)")
     
     # 사이드바
     with st.sidebar:
-        st.header("⚙️ 설정")
+        st.header("설정")
         
         # 거래소 선택
         exchange_name = st.selectbox(
@@ -83,7 +83,7 @@ def main():
         st.divider()
         
         # 분석 기간
-        st.subheader("📅 분석 기간")
+        st.subheader("분석 기간")
         period_days = st.select_slider(
             "데이터 기간",
             options=[30, 60, 90, 180, 365],
@@ -101,9 +101,9 @@ def main():
     
     # 메인 컨텐츠
     tab1, tab2, tab3 = st.tabs([
-        "📈 시세 조회",
-        "🎯 분석 결과", 
-        "📊 전략 비교"
+        "시세 조회",
+        "분석 결과", 
+        "전략 비교"
     ])
     
     with tab1:
@@ -118,7 +118,7 @@ def main():
 
 def show_daily_prices(exchange_name: str, symbol: str, period_days: int):
     """일일 종가 시세 표시 (전일 오후 9시 기점)"""
-    st.subheader(f"📈 일일 종가 시세 - {exchange_name.upper()} / {symbol}")
+    st.subheader(f"일일 종가 시세 - {exchange_name.upper()} / {symbol}")
     st.caption("기준: 전일 오후 9시 (21:00 KST)")
     
     col1, col2 = st.columns([3, 1])
@@ -213,7 +213,7 @@ def show_daily_prices(exchange_name: str, symbol: str, period_days: int):
         st.plotly_chart(fig, use_container_width=True)
         
         # 일일 종가 테이블
-        st.subheader("📋 일일 종가 데이터")
+        st.subheader("일일 종가 데이터")
         
         display_df = df[["timestamp", "open", "high", "low", "close", "volume"]].copy()
         volume_col = f"거래량({symbol})"
@@ -418,9 +418,9 @@ def needs_reanalysis(current_settings: dict) -> bool:
 def show_analysis_results(current_settings: dict = None):
     """분석 결과 표시 (전일 종가 기준)"""
     if current_settings:
-        st.subheader(f"🎯 분석 결과 - {current_settings['exchange'].upper()} / {current_settings['symbol']}")
+        st.subheader(f"분석 결과 - {current_settings['exchange'].upper()} / {current_settings['symbol']}")
     else:
-        st.subheader("🎯 분석 결과")
+        st.subheader("분석 결과")
     st.caption("전일 종가 기준 백테스트 결과")
     
     # 자동 분석: 데이터 없거나 설정 변경시
@@ -501,7 +501,7 @@ def show_analysis_results(current_settings: dict = None):
     
     # 전략 설명
     strategy_obj = get_strategy(selected_strategy)
-    st.markdown(f"**📌 전략 설명:** {strategy_obj.description}")
+    st.markdown(f"**전략 설명:** {strategy_obj.description}")
     
     # 차트
     if candles:
@@ -561,7 +561,7 @@ def show_analysis_results(current_settings: dict = None):
     # 보유 포지션
     positions = portfolio.get("positions", [])
     if positions:
-        st.subheader("💼 현재 보유 포지션")
+        st.subheader("현재 보유 포지션")
         pos_df = pd.DataFrame(positions)
         st.dataframe(pos_df, use_container_width=True, hide_index=True)
 
@@ -569,9 +569,9 @@ def show_analysis_results(current_settings: dict = None):
 def show_strategy_comparison(current_settings: dict = None):
     """전략별 수익률 비교 (일/주/월)"""
     if current_settings:
-        st.subheader(f"📊 전략별 수익률 비교 - {current_settings['exchange'].upper()} / {current_settings['symbol']}")
+        st.subheader(f"전략별 수익률 비교 - {current_settings['exchange'].upper()} / {current_settings['symbol']}")
     else:
-        st.subheader("📊 전략별 수익률 비교")
+        st.subheader("전략별 수익률 비교")
     st.caption("일간 / 주간 / 월간 수익률 비교")
     
     # 자동 분석: 데이터 없거나 설정 변경시
@@ -711,11 +711,11 @@ def show_strategy_comparison(current_settings: dict = None):
     
     # 최고 성과 전략
     best = sorted_results[0]
-    st.success(f"🏆 **최고 성과 전략:** {best['display_name']} ({best['total_return_pct']:+.2f}%)")
+    st.success(f"**최고 성과 전략:** {best['display_name']} ({best['total_return_pct']:+.2f}%)")
     
     # 기간별 비교 차트
     st.divider()
-    st.subheader("📈 기간별 수익률 비교")
+    st.subheader("기간별 수익률 비교")
     
     # 그룹 바 차트
     fig = go.Figure()
@@ -754,7 +754,7 @@ def show_strategy_comparison(current_settings: dict = None):
 def show_investment_opinion(sorted_results: List[dict], comparison_data: dict, settings: dict):
     """종합 투자 의견 표시"""
     st.divider()
-    st.subheader("💡 종합 투자 의견")
+    st.subheader("종합 투자 의견")
     
     if not sorted_results or not comparison_data:
         st.info("분석 데이터가 필요합니다.")
@@ -772,20 +772,20 @@ def show_investment_opinion(sorted_results: List[dict], comparison_data: dict, s
     # 시장 트렌드 분석
     def get_trend(ret: float) -> tuple:
         if ret > 3:
-            return "강세 📈", "success"
+            return "강세 ▲", "success"
         elif ret > 0:
-            return "약세 상승 📊", "info"
+            return "약보합 ↗", "info"
         elif ret > -3:
-            return "약세 하락 📉", "warning"
+            return "약보합 ↘", "warning"
         else:
-            return "강한 하락 🔻", "error"
+            return "약세 ▼", "error"
     
     daily_trend, daily_color = get_trend(daily_return)
     weekly_trend, weekly_color = get_trend(weekly_return)
     monthly_trend, monthly_color = get_trend(monthly_return)
     
     # 시장 상황 카드
-    st.markdown("### 📊 시장 상황")
+    st.markdown("### 시장 상황")
     col1, col2, col3 = st.columns(3)
     
     with col1:
@@ -798,7 +798,7 @@ def show_investment_opinion(sorted_results: List[dict], comparison_data: dict, s
     st.markdown("---")
     
     # 종합 의견
-    st.markdown("### 🎯 전략 추천")
+    st.markdown("### 전략 추천")
     
     # 시장 상황에 따른 추천 로직
     avg_return = (daily_return + weekly_return + monthly_return) / 3
@@ -812,22 +812,22 @@ def show_investment_opinion(sorted_results: List[dict], comparison_data: dict, s
     # 2. 시장 상황별 추천
     if avg_return > 2:
         market_condition = "상승장"
-        opinions.append(f"**📈 현재 시장:** {market_condition} - 추세 추종 전략(SMA 크로스, MACD)이 유리합니다.")
+        opinions.append(f"**현재 시장:** {market_condition} - 추세 추종 전략(SMA 크로스, MACD)이 유리합니다.")
         recommended = "SMA 크로스오버" if any(r["strategy"] == "sma_cross" for r in sorted_results) else best_strategy["display_name"]
     elif avg_return < -2:
         market_condition = "하락장"
-        opinions.append(f"**📉 현재 시장:** {market_condition} - 역추세 전략(RSI 과매도, 볼린저 밴드)이 유리합니다.")
+        opinions.append(f"**현재 시장:** {market_condition} - 역추세 전략(RSI 과매도, 볼린저 밴드)이 유리합니다.")
         recommended = "RSI" if any(r["strategy"] == "rsi" for r in sorted_results) else best_strategy["display_name"]
     else:
         market_condition = "횡보장"
-        opinions.append(f"**📊 현재 시장:** {market_condition} - 레인지 전략(볼린저 밴드)이 유리합니다.")
+        opinions.append(f"**현재 시장:** {market_condition} - 레인지 전략(볼린저 밴드)이 유리합니다.")
         recommended = "볼린저 밴드" if any(r["strategy"] == "bollinger" for r in sorted_results) else best_strategy["display_name"]
     
     # 3. 기간별 추천
     if weekly_return > 0 and monthly_return < 0:
         opinions.append("**⚠️ 주의:** 단기 반등 중이나 중기 하락 추세입니다. 단기 매매 권장.")
     elif weekly_return < 0 and monthly_return > 0:
-        opinions.append("**💡 기회:** 단기 조정 중이나 중기 상승 추세입니다. 매수 기회 검토.")
+        opinions.append("**기회:** 단기 조정 중이나 중기 상승 추세입니다. 매수 기회 검토.")
     elif weekly_return > 0 and monthly_return > 0:
         opinions.append("**✅ 긍정적:** 단기/중기 모두 상승 추세입니다. 추세 추종 전략 권장.")
     else:
@@ -840,7 +840,7 @@ def show_investment_opinion(sorted_results: List[dict], comparison_data: dict, s
     st.markdown("---")
     
     # 전략별 요약 테이블
-    st.markdown("### 📋 전략별 요약")
+    st.markdown("### 전략별 요약")
     
     summary_data = []
     for i, r in enumerate(sorted_results):
