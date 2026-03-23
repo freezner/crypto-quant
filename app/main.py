@@ -481,12 +481,12 @@ def show_analysis_results(current_settings: dict = None):
         )
     
     with col3:
-        delta_color = "normal" if profit >= 0 else "inverse"
+        # 한국식: 빨강=상승, 녹색=하락 (inverse 사용)
         st.metric(
             "수익/손실",
             f"₩{profit:,.0f}",
             f"{profit_pct:+.2f}%",
-            delta_color=delta_color,
+            delta_color="inverse",
         )
     
     with col4:
