@@ -1,51 +1,133 @@
-# Environment
+# ============================================
+# Environment & Secrets
+# ============================================
 .env
 .env.local
 .env.*.local
-venv/
-.venv/
-env/
+.env.production
+*.pem
+*.key
+secrets/
 
+# ============================================
 # Python
+# ============================================
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
 build/
+develop-eggs/
 dist/
-*.egg-info/
+downloads/
+eggs/
 .eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# Database
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# pyenv
+.python-version
+
+# ============================================
+# Database & Data
+# ============================================
 *.db
 *.sqlite3
+*.sqlite
 data/*.db
+data/*.sqlite3
+!data/.gitkeep
 
-# IDE
+# ============================================
+# IDE & Editor
+# ============================================
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
+*.sublime-project
+*.sublime-workspace
+.project
+.pydevproject
+.settings/
 
-# OS
+# ============================================
+# OS Generated
+# ============================================
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+desktop.ini
 
+# ============================================
 # Streamlit
+# ============================================
 .streamlit/secrets.toml
+.streamlit/cache/
 
-# Logs
+# ============================================
+# Logs & Temp
+# ============================================
 *.log
 logs/
+log/
+tmp/
+temp/
+nohup.out
+*.pid
 
-# Test
+# ============================================
+# Test & Coverage
+# ============================================
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
 
-# Jupyter
+# ============================================
+# Jupyter Notebook
+# ============================================
 .ipynb_checkpoints/
+*.ipynb_checkpoints
 
-.env
+# ============================================
+# Build & Distribution
+# ============================================
+*.manifest
+*.spec
+
+# ============================================
+# Misc
+# ============================================
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+cython_debug/
