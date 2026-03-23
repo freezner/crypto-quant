@@ -281,7 +281,29 @@ def calculate_period_returns(results: List[dict], candles: List[dict], initial_b
     df["timestamp"] = pd.to_datetime(df["timestamp"])
     df = df.sort_values("timestamp")
     
-    now = df["timestamp"].max()
+    # 데이터 기간 산출
+    data_start = df["timestamp"].min()
+    data_end = df["timestamp"].max()
+    
+    # 기간별 날짜 범위 계산
+    period_dates = {
+        "daily": {
+            "start": data_end,
+            "end": data_end,
+        },
+        "weekly": {
+            "start": data_end - timedelta(days=6),
+            "end": data_end,
+        },
+        "monthly": {
+            "start": data_end - timedelta(days=29),
+            "end": data_end,
+        },
+        "total": {
+            "start": data_start,
+            "end": data_end,
+        },
+    }
     
     periods = {
         "일간": 1,
@@ -316,6 +338,7 @@ def calculate_period_returns(results: List[dict], candles: List[dict], initial_b
     
     st.session_state.comparison_results = {
         "period_results": period_results,
+        "period_dates": period_dates,
         "timestamp": datetime.now(),
     }
 
@@ -467,46 +490,71 @@ def show_strategy_comparison():
         return
     
     period_results = st.session_state.comparison_results.get("period_results", [])
+    period_dates = st.session_state.comparison_results.get("period_dates", {})
     
     if not period_results:
         st.warning("비교 결과가 없습니다.")
         return
     
-    # 기간 선택
-    period_type = st.radio(
+    # 기간별 날짜 문자열 생성
+    def format_date_range(key: str) -> str:
+        if key not in period_dates:
+            return ""
+        dates = period_dates[key]
+        start = dates["start"]
+        end = dates["end"]
+        if start == end:
+            return start.strftime("%m/%d")
+        return f"{start.strftime('%m/%d')}~{end.strftime('%m/%d')}"
+    
+    # 기간 선택 옵션 (날짜 포함)
+    total_range = format_date_range("total")
+    daily_range = format_date_range("daily")
+    weekly_range = format_date_range("weekly")
+    monthly_range = format_date_range("monthly")
+    
+    period_options = {
+        f"전체 ({total_range})": "전체",
+        f"일간 ({daily_range})": "일간",
+        f"주간 ({weekly_range})": "주간",
+        f"월간 ({monthly_range})": "월간",
+    }
+    
+    selected_option = st.radio(
         "비교 기간",
-        options=["전체", "일간", "주간", "월간"],
+        options=list(period_options.keys()),
         horizontal=True,
     )
+    period_type = period_options[selected_option]
     
     # 데이터 준비
     if period_type == "전체":
         return_key = "total_return_pct"
-        title = "전체 기간 수익률"
+        title = f"전체 기간 수익률 ({total_range})"
     elif period_type == "일간":
         return_key = "daily_return_pct"
-        title = "일간 수익률 (평균)"
+        title = f"일간 수익률 - 평균 ({daily_range})"
     elif period_type == "주간":
         return_key = "weekly_return_pct"
-        title = "주간 수익률 (추정)"
+        title = f"주간 수익률 - 추정 ({weekly_range})"
     else:
         return_key = "monthly_return_pct"
-        title = "월간 수익률 (추정)"
+        title = f"월간 수익률 - 추정 ({monthly_range})"
     
     # 정렬
     sorted_results = sorted(period_results, key=lambda x: x[return_key], reverse=True)
     
-    # 테이블
+    # 테이블 (컬럼명에 기간 표시)
     table_data = []
     for i, r in enumerate(sorted_results):
         rank_emoji = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else f"{i+1}"
         table_data.append({
             "순위": rank_emoji,
             "전략": r["display_name"],
-            "전체 수익률": f"{r['total_return_pct']:+.2f}%",
-            "일간": f"{r['daily_return_pct']:+.3f}%",
-            "주간": f"{r['weekly_return_pct']:+.2f}%",
-            "월간": f"{r['monthly_return_pct']:+.2f}%",
+            f"전체 ({total_range})": f"{r['total_return_pct']:+.2f}%",
+            f"일간 ({daily_range})": f"{r['daily_return_pct']:+.3f}%",
+            f"주간 ({weekly_range})": f"{r['weekly_return_pct']:+.2f}%",
+            f"월간 ({monthly_range})": f"{r['monthly_return_pct']:+.2f}%",
             "최종 자산": f"₩{r['total_value']:,.0f}",
             "거래 횟수": r["total_trades"],
         })
@@ -572,13 +620,18 @@ def show_strategy_comparison():
     # 그룹 바 차트
     fig = go.Figure()
     
-    periods = ["일간", "주간", "월간"]
+    # X축 레이블에 날짜 범위 포함
+    periods_with_dates = [
+        f"일간\n({daily_range})",
+        f"주간\n({weekly_range})",
+        f"월간\n({monthly_range})",
+    ]
     keys = ["daily_return_pct", "weekly_return_pct", "monthly_return_pct"]
     
     for r in sorted_results:
         fig.add_trace(go.Bar(
             name=r["display_name"],
-            x=periods,
+            x=periods_with_dates,
             y=[r[k] for k in keys],
             text=[f"{r[k]:+.2f}%" for k in keys],
             textposition="outside",
