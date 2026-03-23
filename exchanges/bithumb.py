@@ -3,6 +3,7 @@
 문서: https://apidocs.bithumb.com/
 """
 from typing import List, Optional
+from datetime import datetime
 from exchanges.base import ExchangeBase, Ticker
 import logging
 
@@ -143,8 +144,12 @@ class BithumbExchange(ExchangeBase):
             
             for item in items:
                 # [timestamp, open, close, high, low, volume]
+                # timestamp를 밀리초에서 ISO 문자열로 변환
+                ts_ms = int(item[0])
+                ts_iso = datetime.fromtimestamp(ts_ms / 1000).strftime("%Y-%m-%dT%H:%M:%S")
+                
                 candles.append({
-                    "timestamp": item[0],
+                    "timestamp": ts_iso,
                     "open": float(item[1]),
                     "close": float(item[2]),
                     "high": float(item[3]),

@@ -4,6 +4,7 @@
 API v2: https://api.coinone.co.kr/public/v2/
 """
 from typing import List, Optional
+from datetime import datetime
 from exchanges.base import ExchangeBase, Ticker
 import logging
 
@@ -141,8 +142,12 @@ class CoinoneExchange(ExchangeBase):
             
             candles = []
             for item in data.get("chart", []):
+                # timestamp를 밀리초에서 ISO 문자열로 변환
+                ts_ms = int(item.get("timestamp", 0))
+                ts_iso = datetime.fromtimestamp(ts_ms / 1000).strftime("%Y-%m-%dT%H:%M:%S")
+                
                 candles.append({
-                    "timestamp": item.get("timestamp"),
+                    "timestamp": ts_iso,
                     "open": float(item.get("open", 0)),
                     "high": float(item.get("high", 0)),
                     "low": float(item.get("low", 0)),
