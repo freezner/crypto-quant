@@ -83,12 +83,6 @@ def main():
             format_func=lambda x: f"{x}일",
         )
         
-        st.divider()
-        
-        # 분석 실행 버튼 (수동 실행용)
-        if st.button("🔍 전체 분석 실행", type="primary", use_container_width=True):
-            run_full_analysis(exchange_name, symbol, initial_balance, period_days)
-    
     # 현재 설정을 session_state에 저장
     current_settings = {
         "exchange": exchange_name,
@@ -116,7 +110,7 @@ def main():
 
 def show_daily_prices(exchange_name: str, symbol: str, period_days: int):
     """일일 종가 시세 표시 (전일 오후 9시 기점)"""
-    st.subheader("📈 일일 종가 시세")
+    st.subheader(f"📈 일일 종가 시세 - {exchange_name.upper()} / {symbol}")
     st.caption("기준: 전일 오후 9시 (21:00 KST)")
     
     col1, col2 = st.columns([3, 1])
@@ -414,7 +408,10 @@ def needs_reanalysis(current_settings: dict) -> bool:
 
 def show_analysis_results(current_settings: dict = None):
     """분석 결과 표시 (전일 종가 기준)"""
-    st.subheader("🎯 분석 결과")
+    if current_settings:
+        st.subheader(f"🎯 분석 결과 - {current_settings['exchange'].upper()} / {current_settings['symbol']}")
+    else:
+        st.subheader("🎯 분석 결과")
     st.caption("전일 종가 기준 백테스트 결과")
     
     # 자동 분석: 데이터 없거나 설정 변경시
@@ -562,7 +559,10 @@ def show_analysis_results(current_settings: dict = None):
 
 def show_strategy_comparison(current_settings: dict = None):
     """전략별 수익률 비교 (일/주/월)"""
-    st.subheader("📊 전략별 수익률 비교")
+    if current_settings:
+        st.subheader(f"📊 전략별 수익률 비교 - {current_settings['exchange'].upper()} / {current_settings['symbol']}")
+    else:
+        st.subheader("📊 전략별 수익률 비교")
     st.caption("일간 / 주간 / 월간 수익률 비교")
     
     # 자동 분석: 데이터 없거나 설정 변경시
