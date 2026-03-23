@@ -273,42 +273,60 @@ def run_full_analysis(exchange_name: str, symbol: str, initial_balance: float, p
 
 
 def calculate_period_returns(results: List[dict], candles: List[dict], initial_balance: float):
-    """기간별 수익률 계산 (일/주/월)"""
+    """기간별 수익률 계산 (일/주/월) - 실제 가격 변동 기반"""
     if not candles:
         return
     
     df = pd.DataFrame(candles)
     df["timestamp"] = pd.to_datetime(df["timestamp"])
-    df = df.sort_values("timestamp")
+    df = df.sort_values("timestamp").reset_index(drop=True)
     
     # 데이터 기간 산출
     data_start = df["timestamp"].min()
     data_end = df["timestamp"].max()
+    total_days = len(df)
     
-    # 기간별 날짜 범위 계산
+    # 최신 종가
+    latest_close = df.iloc[-1]["close"]
+    
+    # 기간별 시작 가격 및 날짜 찾기
+    def get_period_data(days_back: int):
+        """N일 전 데이터 찾기"""
+        if days_back >= len(df):
+            idx = 0
+        else:
+            idx = max(0, len(df) - days_back - 1)
+        return df.iloc[idx]
+    
+    # 각 기간별 가격 변동률 계산
+    daily_data = get_period_data(1)
+    weekly_data = get_period_data(7)
+    monthly_data = get_period_data(30)
+    
+    # 가격 기준 수익률 (Hold 전략)
+    daily_price_return = ((latest_close - daily_data["close"]) / daily_data["close"] * 100) if daily_data["close"] else 0
+    weekly_price_return = ((latest_close - weekly_data["close"]) / weekly_data["close"] * 100) if weekly_data["close"] else 0
+    monthly_price_return = ((latest_close - monthly_data["close"]) / monthly_data["close"] * 100) if monthly_data["close"] else 0
+    total_price_return = ((latest_close - df.iloc[0]["close"]) / df.iloc[0]["close"] * 100) if df.iloc[0]["close"] else 0
+    
+    # 기간별 날짜 범위
     period_dates = {
         "daily": {
-            "start": data_end,
+            "start": daily_data["timestamp"],
             "end": data_end,
         },
         "weekly": {
-            "start": data_end - timedelta(days=6),
+            "start": weekly_data["timestamp"],
             "end": data_end,
         },
         "monthly": {
-            "start": data_end - timedelta(days=29),
+            "start": monthly_data["timestamp"],
             "end": data_end,
         },
         "total": {
             "start": data_start,
             "end": data_end,
         },
-    }
-    
-    periods = {
-        "일간": 1,
-        "주간": 7,
-        "월간": 30,
     }
     
     period_results = []
@@ -320,18 +338,26 @@ def calculate_period_returns(results: List[dict], candles: List[dict], initial_b
         strategy_name = result["strategy"]
         portfolio = result.get("portfolio", {})
         total_return_pct = portfolio.get("profit_loss_pct", 0)
-        total_days = len(candles)
         
-        # 기간별 수익률 추정 (단순 선형 환산)
-        daily_return = total_return_pct / total_days if total_days > 0 else 0
+        # 전략 효율 (전략 수익률 / 시장 수익률)
+        # 시장 대비 초과 수익률(알파)을 각 기간에 적용
+        if total_price_return != 0:
+            strategy_alpha = total_return_pct / total_price_return
+        else:
+            strategy_alpha = 1.0
+        
+        # 각 기간별 전략 수익률 = 해당 기간 가격 변동률 × 전략 효율
+        daily_return = daily_price_return * strategy_alpha
+        weekly_return = weekly_price_return * strategy_alpha
+        monthly_return = monthly_price_return * strategy_alpha
         
         period_results.append({
             "strategy": strategy_name,
             "display_name": STRATEGIES[strategy_name].display_name,
             "total_return_pct": total_return_pct,
             "daily_return_pct": daily_return,
-            "weekly_return_pct": daily_return * 7,
-            "monthly_return_pct": daily_return * 30,
+            "weekly_return_pct": weekly_return,
+            "monthly_return_pct": monthly_return,
             "total_value": portfolio.get("total_value", initial_balance),
             "total_trades": portfolio.get("total_trades", 0),
         })
@@ -339,6 +365,12 @@ def calculate_period_returns(results: List[dict], candles: List[dict], initial_b
     st.session_state.comparison_results = {
         "period_results": period_results,
         "period_dates": period_dates,
+        "price_returns": {
+            "daily": daily_price_return,
+            "weekly": weekly_price_return,
+            "monthly": monthly_price_return,
+            "total": total_price_return,
+        },
         "timestamp": datetime.now(),
     }
 
