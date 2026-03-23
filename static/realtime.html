@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🪙 크립토 퀀트 - 실시간 시세</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ff4444;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-dot.connected {
+            background: #00c853;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 24px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .symbol {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .exchange {
+            font-size: 0.75rem;
+            padding: 4px 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+        
+        .exchange.upbit { background: #093687; }
+        .exchange.bithumb { background: #f37321; }
+        
+        .price {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            font-family: 'SF Mono', Monaco, monospace;
+        }
+        
+        .price.flash-up {
+            animation: flashUp 0.3s ease;
+        }
+        
+        .price.flash-down {
+            animation: flashDown 0.3s ease;
+        }
+        
+        @keyframes flashUp {
+            0% { color: #fff; }
+            50% { color: #00c853; background: rgba(0,200,83,0.2); }
+            100% { color: #fff; }
+        }
+        
+        @keyframes flashDown {
+            0% { color: #fff; }
+            50% { color: #ff4444; background: rgba(255,68,68,0.2); }
+            100% { color: #fff; }
+        }
+        
+        .change {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        
+        .change.positive { color: #00c853; }
+        .change.negative { color: #ff4444; }
+        
+        .updated {
+            font-size: 0.75rem;
+            color: rgba(255,255,255,0.5);
+            margin-top: 12px;
+        }
+        
+        .exchanges-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 8px;
+        }
+        
+        .exchange-price {
+            flex: 1;
+            padding: 8px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            font-size: 0.85rem;
+        }
+        
+        .exchange-price .label {
+            font-size: 0.7rem;
+            color: rgba(255,255,255,0.5);
+            margin-bottom: 4px;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px;
+            color: rgba(255,255,255,0.5);
+            font-size: 0.85rem;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .stat {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+            color: rgba(255,255,255,0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🪙 크립토 퀀트</h1>
+        <div class="status">
+            <span class="status-dot" id="statusDot"></span>
+            <span id="statusText">연결 중...</span>
+        </div>
+        
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-value" id="updateCount">0</div>
+                <div class="stat-label">업데이트</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="coinCount">0</div>
+                <div class="stat-label">코인</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="latency">-</div>
+                <div class="stat-label">지연(ms)</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="grid" id="priceGrid">
+        <!-- 가격 카드가 여기에 동적으로 추가됨 -->
+    </div>
+    
+    <div class="footer">
+        <p>WebSocket 실시간 연결 | 업비트 & 빗썸</p>
+        <p id="lastUpdate">-</p>
+    </div>
+
+    <script>
+        // 상태 관리
+        const state = {
+            prices: {},          // symbol -> {exchange -> price_data}
+            updateCount: 0,
+            ws: null,
+            reconnectAttempts: 0,
+            maxReconnectAttempts: 10,
+        };
+        
+        // DOM 요소
+        const elements = {
+            statusDot: document.getElementById('statusDot'),
+            statusText: document.getElementById('statusText'),
+            priceGrid: document.getElementById('priceGrid'),
+            updateCount: document.getElementById('updateCount'),
+            coinCount: document.getElementById('coinCount'),
+            latency: document.getElementById('latency'),
+            lastUpdate: document.getElementById('lastUpdate'),
+        };
+        
+        // 가격 포맷
+        function formatPrice(price) {
+            if (price >= 100000000) {
+                return (price / 100000000).toFixed(2) + '억';
+            } else if (price >= 1000000) {
+                return (price / 10000).toFixed(0) + '만';
+            }
+            return price.toLocaleString('ko-KR');
+        }
+        
+        // 카드 생성/업데이트
+        function updatePriceCard(symbol, data) {
+            let card = document.getElementById(`card-${symbol}`);
+            
+            if (!card) {
+                // 새 카드 생성
+                card = document.createElement('div');
+                card.id = `card-${symbol}`;
+                card.className = 'card';
+                card.innerHTML = `
+                    <div class="card-header">
+                        <span class="symbol">${symbol}</span>
+                    </div>
+                    <div class="price" id="price-${symbol}">-</div>
+                    <div class="change" id="change-${symbol}">-</div>
+                    <div class="exchanges-row" id="exchanges-${symbol}"></div>
+                    <div class="updated" id="updated-${symbol}">-</div>
+                `;
+                elements.priceGrid.appendChild(card);
+            }
+            
+            // 거래소별 가격 업데이트
+            const exchangesRow = document.getElementById(`exchanges-${symbol}`);
+            let bestPrice = null;
+            let bestChange = null;
+            
+            for (const [exchange, priceData] of Object.entries(data)) {
+                let exchangeEl = document.getElementById(`ex-${symbol}-${exchange}`);
+                
+                if (!exchangeEl) {
+                    exchangeEl = document.createElement('div');
+                    exchangeEl.id = `ex-${symbol}-${exchange}`;
+                    exchangeEl.className = 'exchange-price';
+                    exchangeEl.innerHTML = `
+                        <div class="label">${exchange.toUpperCase()}</div>
+                        <div class="value"></div>
+                    `;
+                    exchangesRow.appendChild(exchangeEl);
+                }
+                
+                exchangeEl.querySelector('.value').textContent = '₩' + formatPrice(priceData.price);
+                
+                // 최고가 선택
+                if (!bestPrice || priceData.price > bestPrice) {
+                    bestPrice = priceData.price;
+                    bestChange = priceData.change_pct;
+                }
+            }
+            
+            // 메인 가격 업데이트
+            const priceEl = document.getElementById(`price-${symbol}`);
+            const changeEl = document.getElementById(`change-${symbol}`);
+            const updatedEl = document.getElementById(`updated-${symbol}`);
+            
+            const oldPrice = parseFloat(priceEl.dataset.price) || 0;
+            const newPrice = bestPrice;
+            
+            // 플래시 효과
+            if (oldPrice > 0 && newPrice !== oldPrice) {
+                priceEl.classList.remove('flash-up', 'flash-down');
+                void priceEl.offsetWidth; // reflow
+                priceEl.classList.add(newPrice > oldPrice ? 'flash-up' : 'flash-down');
+            }
+            
+            priceEl.textContent = '₩' + formatPrice(newPrice);
+            priceEl.dataset.price = newPrice;
+            
+            const changeStr = (bestChange >= 0 ? '+' : '') + bestChange.toFixed(2) + '%';
+            changeEl.textContent = changeStr;
+            changeEl.className = 'change ' + (bestChange >= 0 ? 'positive' : 'negative');
+            
+            updatedEl.textContent = new Date().toLocaleTimeString('ko-KR');
+        }
+        
+        // WebSocket 연결
+        function connect() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/prices`;
+            
+            console.log('[WS] 연결 시도:', wsUrl);
+            
+            state.ws = new WebSocket(wsUrl);
+            
+            state.ws.onopen = () => {
+                console.log('[WS] 연결됨');
+                elements.statusDot.classList.add('connected');
+                elements.statusText.textContent = '실시간 연결됨';
+                state.reconnectAttempts = 0;
+            };
+            
+            state.ws.onclose = () => {
+                console.log('[WS] 연결 끊김');
+                elements.statusDot.classList.remove('connected');
+                elements.statusText.textContent = '연결 끊김';
+                
+                // 재연결
+                if (state.reconnectAttempts < state.maxReconnectAttempts) {
+                    state.reconnectAttempts++;
+                    const delay = Math.min(1000 * state.reconnectAttempts, 10000);
+                    elements.statusText.textContent = `재연결 중... (${state.reconnectAttempts})`;
+                    setTimeout(connect, delay);
+                }
+            };
+            
+            state.ws.onerror = (error) => {
+                console.error('[WS] 오류:', error);
+            };
+            
+            state.ws.onmessage = (event) => {
+                const startTime = performance.now();
+                
+                try {
+                    const message = JSON.parse(event.data);
+                    
+                    if (message.type === 'initial' || message.type === 'price_update') {
+                        const prices = message.data || [];
+                        
+                        prices.forEach(item => {
+                            const { symbol, exchange, price, change_pct, timestamp } = item;
+                            
+                            if (!state.prices[symbol]) {
+                                state.prices[symbol] = {};
+                            }
+                            
+                            state.prices[symbol][exchange] = {
+                                price,
+                                change_pct,
+                                timestamp,
+                            };
+                            
+                            updatePriceCard(symbol, state.prices[symbol]);
+                        });
+                        
+                        state.updateCount++;
+                        elements.updateCount.textContent = state.updateCount.toLocaleString();
+                        elements.coinCount.textContent = Object.keys(state.prices).length;
+                    }
+                    
+                    // 지연 시간 계산
+                    const latency = Math.round(performance.now() - startTime);
+                    elements.latency.textContent = latency;
+                    
+                    // 마지막 업데이트 시간
+                    elements.lastUpdate.textContent = '마지막 업데이트: ' + new Date().toLocaleTimeString('ko-KR');
+                    
+                } catch (e) {
+                    console.error('[WS] 메시지 파싱 오류:', e);
+                }
+            };
+        }
+        
+        // Ping 유지
+        setInterval(() => {
+            if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                state.ws.send('ping');
+            }
+        }, 25000);
+        
+        // 시작
+        connect();
+    </script>
+</body>
+</html>
