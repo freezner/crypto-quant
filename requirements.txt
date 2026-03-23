@@ -13,6 +13,9 @@ numpy>=1.26.0
 requests>=2.31.0
 httpx>=0.26.0
 
+# WebSocket
+websockets>=12.0
+
 # Technical Analysis
 ta>=0.11.0  # Technical Analysis Library
 
