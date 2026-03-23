@@ -1,0 +1,32 @@
+# Crypto Quant Simulator - Dependencies
+
+# Web Framework
+streamlit>=1.30.0
+fastapi>=0.109.0
+uvicorn>=0.27.0
+
+# Data Processing
+pandas>=2.1.0
+numpy>=1.26.0
+
+# HTTP Requests
+requests>=2.31.0
+httpx>=0.26.0
+
+# Technical Analysis
+ta>=0.11.0  # Technical Analysis Library
+
+# Database
+sqlalchemy>=2.0.0
+
+# Visualization
+plotly>=5.18.0
+
+# Environment
+python-dotenv>=1.0.0
+
+# Scheduling (시세 수집용)
+apscheduler>=3.10.0
+
+# Development
+pytest>=7.4.0
